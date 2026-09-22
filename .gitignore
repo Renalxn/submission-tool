@@ -1,0 +1,14 @@
+# 密钥环境文件
+.env
+*.key
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 临时文件、日志
+*.log
+tmp/
+
