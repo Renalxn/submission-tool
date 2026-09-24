@@ -15,3 +15,41 @@
 ## 快速启动
 
 ### Windows
+pip install python-docx cryptography
+python app.py
+
+### macOS / Linux
+pip3 install python-docx cryptography
+python3 app.py
+
+## 依赖
+- Python 3.10+
+- python-docx
+- cryptography
+
+## 文件约定
+输入文件结构：
+- 第 1 行 = 文章标题
+- 第 2 行 = 作者姓名
+- 第 3 行起 = 正文
+
+## 输出
+在用户选择的目录下自动创建《文章标题》投稿子文件夹，包含：
+- 《文章标题》作者姓名.docx
+- 《文章标题》作者姓名.txt
+
+## 配置文件
+联系信息和银行信息加密保存在 ~/.tougao_assistant/ 目录下，下次打开自动填入。
+
+## 打包为可执行文件（给不懂编程的用户）
+需先安装 PyInstaller：
+pip install pyinstaller
+pyinstaller submission_tool.spec
+生成的可执行文件在 dist/投稿排版助手/ 目录下。
+
+### 各平台打包
+- Windows：在 Windows 上运行 pyinstaller submission_tool.spec
+- macOS：在 macOS 上运行 pyinstaller submission_tool.spec
+- Linux：在 Linux 上运行 pyinstaller submission_tool.spec
+
+> PyInstaller 不支持交叉编译，需在目标平台上打包。
