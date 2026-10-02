@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0
+投稿排版助手 v1.0.1
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -15,12 +15,10 @@ import time
 import platform
 from cryptography.fernet import Fernet
 import threading
-
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
 KEY_FILE = CONFIG_DIR / "key.bin"
 CONFIG_DIR.mkdir(exist_ok=True)
-
 def get_cipher():
     if not KEY_FILE.exists():
         key = Fernet.generate_key()
@@ -28,7 +26,6 @@ def get_cipher():
     else:
         key = KEY_FILE.read_bytes()
     return Fernet(key)
-
 def load_config():
     cipher = get_cipher()
     default_cfg = {
@@ -48,13 +45,10 @@ def load_config():
         return cfg
     except Exception:
         return default_cfg
-
 def save_config(cfg):
     cipher = get_cipher()
     raw = json.dumps(cfg, ensure_ascii=False, indent=2).encode("utf-8")
     CONFIG_FILE.write_bytes(cipher.encrypt(raw))
-
-
 def _set_para(p, align=None, first_indent=None):
     pf = p.paragraph_format
     pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
@@ -64,14 +58,10 @@ def _set_para(p, align=None, first_indent=None):
         p.alignment = align
     if first_indent is not None:
         pf.first_line_indent = first_indent
-
-
 def _set_run_font(run, size_pt):
     run.font.name = "宋体"
     run._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
     run.font.size = Pt(size_pt)
-
-
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -87,7 +77,6 @@ class ScrollableFrame(ttk.Frame):
         def _on_mousewheel(event):
             self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
-
     def scroll_widget_into_view(self, widget):
         self.canvas.update_idletasks()
         widget_y = widget.winfo_y()
@@ -100,13 +89,10 @@ class ScrollableFrame(ttk.Frame):
             bottom = widget_y + widget_h
             total = max(self.scroll_frame.winfo_height(),1)
             self.canvas.yview_moveto(bottom / total)
-
-
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0")
-
+        self.title("投稿排版助手 v1.0.1")
         win_w = 780
         screen_h = self.winfo_screenheight()
         win_h = min(620, screen_h - 100)
@@ -119,7 +105,6 @@ class App(tk.Tk):
         x = int((sw - win_w) / 2)
         y = int((sh - win_h) / 2) - 20
         self.geometry(f"{win_w}x{win_h}+{x}+{y}")
-
         self.cfg = load_config()
         self._grid_rows = []
         # 跟踪所有删除按钮（按顺序）
@@ -128,15 +113,12 @@ class App(tk.Tk):
         self._del_to_fields = {}
         # 跟踪上一个焦点控件
         self._prev_focus = None
-
         self.scroll_frame = ScrollableFrame(self)
         self.scroll_frame.pack(fill="both", expand=True, padx=10, pady=8)
         self.main = self.scroll_frame.scroll_frame
-
         content_wrapper = ttk.Frame(self.main)
         content_wrapper.grid(row=0, column=0, sticky="nsew", padx=20)
         content_wrapper.columnconfigure(1, weight=1)
-
         row_idx = 0
         # 1. 选择文件
         ttk.Label(content_wrapper, text="1. 选择文件（支持.docx/.txt/.md格式。.doc文件请另存为以上任意格式后排版）").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(0,4))
@@ -151,7 +133,6 @@ class App(tk.Tk):
         btn_browse1 = ttk.Button(fr1, text="浏览", command=self.select_file, takefocus=True)
         btn_browse1.pack(side="left", padx=5)
         self._grid_rows.append([e_file, btn_browse1])
-
         # 2. 保存位置
         ttk.Label(content_wrapper, text="2. 选择输出保存文件夹").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,4))
         row_idx +=1
@@ -165,7 +146,6 @@ class App(tk.Tk):
         btn_browse2 = ttk.Button(fr2, text="浏览", command=self.select_save_folder, takefocus=True)
         btn_browse2.pack(side="left", padx=5)
         self._grid_rows.append([e_save, btn_browse2])
-
         # 3. 文章信息
         ttk.Label(content_wrapper, text="3. 文章信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
@@ -183,7 +163,6 @@ class App(tk.Tk):
         e_author.grid(row=1,column=1,sticky="ew",padx=5)
         self._grid_rows.append([e_title])
         self._grid_rows.append([e_author])
-
         # 4. 联系信息
         ttk.Label(content_wrapper, text="4. 联系信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
@@ -200,7 +179,6 @@ class App(tk.Tk):
             entry.grid(row=idx,column=1,sticky="ew",padx=5,pady=1)
             self.contact_vars[key] = (var, entry)
             self._grid_rows.append([entry])
-
         # 5. 银行信息
         ttk.Label(content_wrapper, text="5. 银行信息（最多4组，联行号如报社、杂志社无要求，可不填写）").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
@@ -210,38 +188,29 @@ class App(tk.Tk):
         row_idx +=1
         self.bank_frames = []
         self.bank_data = []
-
         self.btn_add_bank = ttk.Button(content_wrapper, text="添加银行", command=self.add_bank_group, takefocus=True)
         self._grid_rows.append([self.btn_add_bank])
-
         for b in self.cfg["banks"]:
             self.add_bank_group(init_data=b)
-
         self.btn_add_bank.grid(row=row_idx, column=0, sticky="w",pady=3)
         row_idx +=1
-
         self.export_btn = ttk.Button(content_wrapper, text="开始排版并导出", command=self.do_export, takefocus=True)
         self.export_btn.grid(row=row_idx, column=0, columnspan=2, pady=12)
         self._grid_rows.append([self.export_btn])
-
         self._bind_keys()
-
         # 默认光标停在第一行浏览按钮上
         self.after(100, lambda: self._focus_widget(btn_browse1))
-
     def _find_widget_position(self, widget):
         for r, row in enumerate(self._grid_rows):
             for c, w in enumerate(row):
                 if w is widget:
                     return r, c
         return None, None
-
     def _focus_widget(self, widget):
         # 记录上一个焦点
         self._prev_focus = self.focus_get()
         widget.focus_set()
         self.scroll_frame.scroll_widget_into_view(widget)
-
     def _bind_keys(self):
         def move_up(event=None):
             current = self.focus_get()
@@ -255,7 +224,6 @@ class App(tk.Tk):
                     _, email_entry = self.contact_vars["邮箱"]
                     self._focus_widget(email_entry)
                 return "break"
-
             r, c = self._find_widget_position(current)
             if r is None:
                 return
@@ -268,7 +236,6 @@ class App(tk.Tk):
             else:
                 self._focus_widget(self._grid_rows[-1][0])
             return "break"
-
         def move_down(event=None):
             current = self.focus_get()
             # 特殊处理：从删除本组按钮按下
@@ -280,7 +247,6 @@ class App(tk.Tk):
                     # 最后一个删除按钮，向下跳到添加银行
                     self._focus_widget(self.btn_add_bank)
                 return "break"
-
             r, c = self._find_widget_position(current)
             if r is None:
                 return
@@ -293,16 +259,13 @@ class App(tk.Tk):
             else:
                 self._focus_widget(self._grid_rows[0][0])
             return "break"
-
         def move_left(event=None):
             current = self.focus_get()
-
             # 特殊处理：从添加银行按钮按左 → 跳到最后一个删除按钮
             if current is self.btn_add_bank:
                 if self._delete_btns:
                     self._focus_widget(self._delete_btns[-1])
                 return "break"
-
             # 特殊处理：从删除本组按钮按左
             if current in self._delete_btns:
                 entry_card, entry_lxh = self._del_to_fields[current]
@@ -328,7 +291,6 @@ class App(tk.Tk):
                     # 默认去账号
                     self._focus_widget(entry_card)
                 return "break"
-
             r, c = self._find_widget_position(current)
             if r is None:
                 return
@@ -336,10 +298,8 @@ class App(tk.Tk):
             if c > 0:
                 self._focus_widget(row[c - 1])
             return "break"
-
         def move_right(event=None):
             current = self.focus_get()
-
             # 特殊处理：从联行号按右 → 跳到删除本组按钮
             # 联行号在第二行，第二行只有 [entry_branch, entry_lxh]
             r, c = self._find_widget_position(current)
@@ -352,29 +312,24 @@ class App(tk.Tk):
                         if el is current:
                             self._focus_widget(btn)
                             return "break"
-
             # 普通左右导航
             if r is None:
                 return
             if c < len(row) - 1:
                 self._focus_widget(row[c + 1])
             return "break"
-
         self.bind("<Up>", move_up)
         self.bind("<Down>", move_down)
         self.bind("<Left>", move_left)
         self.bind("<Right>", move_right)
-
         def on_return(event=None):
             widget = self.focus_get()
             if isinstance(widget, ttk.Button):
                 widget.invoke()
                 return "break"
             return "break"
-
         self.bind("<Return>", on_return)
         self.bind("<KP_Enter>", on_return)
-
     def select_file(self):
         init_dir = self.cfg.get("last_file_dir","")
         fp = filedialog.askopenfilename(
@@ -391,7 +346,6 @@ class App(tk.Tk):
         title, author = self.parse_file(fp)
         self.title_var.set(title)
         self.author_var.set(author)
-
     def parse_file(self, filepath):
         ext = filepath.lower().split(".")[-1]
         title, author = "", ""
@@ -410,14 +364,12 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror("读取失败", str(e))
         return title, author
-
     def select_save_folder(self):
         init_dir = self.cfg.get("last_save_dir","")
         folder = filedialog.askdirectory(initialdir=init_dir)
         if folder:
             self.save_dir_var.set(folder)
             self.cfg["last_save_dir"] = folder
-
     def add_bank_group(self, init_data=None):
         if len(self.bank_frames)>=4:
             messagebox.showinfo("提示", "最多只能添加4组银行信息")
@@ -428,68 +380,54 @@ class App(tk.Tk):
         fr.columnconfigure(1, weight=1)
         fr.columnconfigure(3, weight=1)
         vars_dict = {}
-
         ttk.Label(fr, text="银行名称:").grid(row=0, column=0, sticky="w")
         var_bank = tk.StringVar(value=data["银行名称"])
         entry_bank = ttk.Entry(fr, textvariable=var_bank)
         entry_bank.grid(row=0, column=1, padx=3, sticky="ew")
-
         ttk.Label(fr, text="账号:").grid(row=0, column=2, sticky="w", padx=(8,0))
         var_card = tk.StringVar(value=data["账号"])
         entry_card = ttk.Entry(fr, textvariable=var_card)
         entry_card.grid(row=0, column=3, padx=3, sticky="ew")
-
         ttk.Label(fr, text="开户支行:").grid(row=1, column=0, sticky="w")
         var_branch = tk.StringVar(value=data["开户支行"])
         entry_branch = ttk.Entry(fr, textvariable=var_branch)
         entry_branch.grid(row=1, column=1, padx=3, sticky="ew")
-
         ttk.Label(fr, text="联行号:").grid(row=1, column=2, sticky="w", padx=(8,0))
         var_lxh = tk.StringVar(value=data["联行号"])
         entry_lxh = ttk.Entry(fr, textvariable=var_lxh)
         entry_lxh.grid(row=1, column=3, padx=3, sticky="ew")
-
         vars_dict["银行名称"] = (var_bank, entry_bank)
         vars_dict["账号"] = (var_card, entry_card)
         vars_dict["开户支行"] = (var_branch, entry_branch)
         vars_dict["联行号"] = (var_lxh, entry_lxh)
-
         btn_del = ttk.Button(fr, text="删除本组", takefocus=True)
         btn_del.grid(row=0, column=4, rowspan=2, padx=4)
-
         try:
             insert_idx = self._grid_rows.index([self.btn_add_bank])
         except (ValueError, AttributeError):
             insert_idx = len(self._grid_rows)
-
         # 第一行：银行名称、账号、删除按钮
         row_a = [entry_bank, entry_card, btn_del]
         # 第二行：开户支行、联行号（不含删除按钮，通过特殊逻辑导航）
         row_b = [entry_branch, entry_lxh]
-
         self._grid_rows.insert(insert_idx, row_a)
         insert_idx += 1
         self._grid_rows.insert(insert_idx, row_b)
-
         new_rows = [row_a, row_b]
-
         # 注册删除按钮
         self._delete_btns.append(btn_del)
         self._del_to_fields[btn_del] = (entry_card, entry_lxh)
-
         def del_this():
             del_row_idx = None
             for r, row in enumerate(self._grid_rows):
                 if row is row_a:
                     del_row_idx = r
                     break
-
             for row in new_rows:
                 try:
                     self._grid_rows.remove(row)
                 except ValueError:
                     pass
-
             # 从删除按钮列表移除
             try:
                 self._delete_btns.remove(btn_del)
@@ -497,24 +435,19 @@ class App(tk.Tk):
                 pass
             if btn_del in self._del_to_fields:
                 del self._del_to_fields[btn_del]
-
             idx = self.bank_frames.index(fr)
             self.bank_frames.pop(idx)
             self.bank_data.pop(idx)
             fr.destroy()
-
             if del_row_idx is not None and del_row_idx < len(self._grid_rows):
                 self._focus_widget(self._grid_rows[del_row_idx][0])
             elif len(self._grid_rows) > 0:
                 self._focus_widget(self._grid_rows[-1][0])
-
         btn_del.config(command=del_this)
         self.bank_frames.append(fr)
         self.bank_data.append(vars_dict)
-
         if init_data is None:
             self._focus_widget(entry_bank)
-
     def get_bank_list(self):
         res = []
         for b in self.bank_data:
@@ -524,7 +457,6 @@ class App(tk.Tk):
                 d[k] = var.get().strip()
             res.append(d)
         return res
-
     def open_folder(self, folder_path):
         path = str(folder_path)
         if platform.system() == "Windows":
@@ -533,7 +465,6 @@ class App(tk.Tk):
             os.system(f"open '{path}'")
         else:
             os.system(f"xdg-open '{path}'")
-
     def do_export(self):
         for key, (var,entry) in self.contact_vars.items():
             entry.config(background="white")
@@ -541,14 +472,12 @@ class App(tk.Tk):
             for k in ["银行名称","账号","开户支行","联行号"]:
                 var,entry = bank[k]
                 entry.config(background="white")
-
         title = self.title_var.get().strip()
         author = self.author_var.get().strip()
         save_root = self.save_dir_var.get().strip()
         if not all([title, author, save_root]):
             messagebox.showerror("缺失", "标题、作者、保存文件夹不能为空")
             return
-
         error_text = ""
         contact = {}
         for key, (var,entry) in self.contact_vars.items():
@@ -557,7 +486,6 @@ class App(tk.Tk):
             if not val:
                 entry.config(background="#ffcccc")
                 error_text += f"联系信息：{key} 为空\n"
-
         bank_list = self.get_bank_list()
         for bank_idx, bank in enumerate(bank_list):
             for ck in ["银行名称","账号","开户支行"]:
@@ -566,37 +494,30 @@ class App(tk.Tk):
                 if not val:
                     entry.config(background="#ffcccc")
                     error_text += f"第{bank_idx+1}组银行信息：{ck} 为空\n"
-
         if error_text:
             messagebox.showerror("必填项缺失", error_text)
             return
-
         sub_folder_name = f"《{title}》投稿"
         out_folder = Path(save_root) / sub_folder_name
         out_folder.mkdir(exist_ok=True)
         fn_base = f"《{title}》{author}"
         docx_path = out_folder / f"{fn_base}.docx"
         txt_path = out_folder / f"{fn_base}.txt"
-
         fp = self.file_path_var.get()
         content_lines = self.read_full_text(fp)
         body_lines = content_lines[2:] if len(content_lines)>=3 else []
         body_text = "\n".join(body_lines)
         char_count = len(body_text.replace("\n","").replace(" ",""))
-
         doc = Document()
-
         p = doc.add_paragraph()
         _set_para(p, align=WD_ALIGN_PARAGRAPH.CENTER)
         run = p.add_run(title)
         _set_run_font(run, 14)
         run.bold = False
-
         p = doc.add_paragraph()
         _set_para(p, align=WD_ALIGN_PARAGRAPH.CENTER)
         run = p.add_run(author)
         _set_run_font(run, 10.5)
-
         for line in body_lines:
             line = line.strip()
             if not line:
@@ -605,28 +526,22 @@ class App(tk.Tk):
             _set_para(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, first_indent=Pt(21))
             run = p.add_run(line)
             _set_run_font(run, 10.5)
-
         p = doc.add_paragraph()
         _set_para(p, align=WD_ALIGN_PARAGRAPH.RIGHT)
         run = p.add_run(f"（正文：{char_count} 字）")
         _set_run_font(run, 10.5)
-
         doc.add_paragraph()
-
         p = doc.add_paragraph()
         _set_para(p)
         run = p.add_run("联系信息：")
         _set_run_font(run, 10.5)
-
         for key in ["姓名","微信","电话","地址","邮编","身份证号","邮箱"]:
             val = contact.get(key,"")
             p = doc.add_paragraph()
             _set_para(p)
             run = p.add_run(f"{key}：{val}")
             _set_run_font(run, 10.5)
-
         doc.add_paragraph()
-
         for idx,bank in enumerate(bank_list):
             p = doc.add_paragraph()
             _set_para(p)
@@ -647,7 +562,18 @@ class App(tk.Tk):
             if idx != len(bank_list)-1:
                 doc.add_paragraph()
         doc.add_paragraph()
-        doc.save(docx_path)
+
+        # ========== 修改点：捕获docx文件占用，支持重试/取消 ==========
+        save_ok = False
+        while not save_ok:
+            try:
+                doc.save(docx_path)
+                save_ok = True
+            except PermissionError:
+                res = messagebox.askretrycancel("文件占用",
+                    "目标文件或文件夹正在被占用，请关闭相关文件/文件夹后重试")
+                if not res:
+                    return
 
         txt_content = []
         txt_content.append(title)
@@ -674,11 +600,9 @@ class App(tk.Tk):
         txt_content.append("")
         with open(txt_path,"w",encoding="utf-8") as f:
             f.write("\n".join(txt_content))
-
         self.cfg["contact"] = {k:v.get().strip() for k,(v,e) in self.contact_vars.items()}
         self.cfg["banks"] = self.get_bank_list()
         save_config(self.cfg)
-
         win = tk.Toplevel(self)
         win.title("导出成功")
         win.geometry("320x120")
@@ -687,15 +611,12 @@ class App(tk.Tk):
         sh2 = win.winfo_screenheight()
         win.geometry(f"320x120+{int((sw2-320)/2)}+{int((sh2-120)/2)}")
         ttk.Label(win, text=f"文件已导出到：\n{out_folder}", wraplength=300).pack(pady=15)
-
         def close_all():
             win.destroy()
             self.open_folder(out_folder)
             self.quit()
-
         ttk.Button(win, text="关闭", command=close_all).pack()
         win.after(3000, close_all)
-
     def read_full_text(self,filepath):
         ext = filepath.lower().split(".")[-1]
         lines = []
@@ -707,8 +628,6 @@ class App(tk.Tk):
             doc = Document(filepath)
             lines = [p.text for p in doc.paragraphs]
         return lines
-
-
 if __name__ == "__main__":
     app = App()
     app.mainloop()
