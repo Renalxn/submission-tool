@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.1
+投稿排版助手 v1.0.2
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
 import json
+import shutil
 from pathlib import Path
 from docx import Document
 from docx.shared import Pt
@@ -92,7 +93,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.1")
+        self.title("投稿排版助手 v1.0.2")
         win_w = 780
         screen_h = self.winfo_screenheight()
         win_h = min(620, screen_h - 100)
@@ -497,9 +498,38 @@ class App(tk.Tk):
         if error_text:
             messagebox.showerror("必填项缺失", error_text)
             return
+
         sub_folder_name = f"《{title}》投稿"
         out_folder = Path(save_root) / sub_folder_name
-        out_folder.mkdir(exist_ok=True)
+
+        # 文件夹已存在，弹出覆盖/另存为/取消弹窗
+        if out_folder.exists():
+            res = messagebox.askyesnocancel("目标文件夹已存在",
+                f"文件夹：\n{out_folder}\n已经存在！\n\n【是】覆盖（清空整个文件夹）\n【否】另存为（选择新的保存位置）\n【取消】放弃本次导出")
+            if res is None:
+                # 用户点取消
+                return
+            elif res is False:
+                # 另存为：唤起系统文件夹对话框
+                new_base_dir = filedialog.askdirectory(title="选择另存为的父目录", initialdir=save_root)
+                if not new_base_dir:
+                    return
+                out_folder = Path(new_base_dir) / sub_folder_name
+            elif res is True:
+                # 用户选择覆盖，循环捕获文件夹被占用异常，支持重试
+                del_ok = False
+                while not del_ok:
+                    try:
+                        shutil.rmtree(out_folder)
+                        del_ok = True
+                    except OSError:
+                        ans = messagebox.askretrycancel("文件夹占用",
+                            "目标文件夹或者内部文件正在被占用，请关闭相关文件/文件夹后重试")
+                        if not ans:
+                            return
+        # 创建输出文件夹
+        out_folder.mkdir(parents=True, exist_ok=False)
+
         fn_base = f"《{title}》{author}"
         docx_path = out_folder / f"{fn_base}.docx"
         txt_path = out_folder / f"{fn_base}.txt"
@@ -563,7 +593,7 @@ class App(tk.Tk):
                 doc.add_paragraph()
         doc.add_paragraph()
 
-        # ========== 修改点：捕获docx文件占用，支持重试/取消 ==========
+        # ========== 捕获docx文件占用，支持重试/取消 ==========
         save_ok = False
         while not save_ok:
             try:
