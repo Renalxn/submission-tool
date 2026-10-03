@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.13
+投稿排版助手 v1.0.14
 """
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 import os
 import json
-import shutil
 import re
 from pathlib import Path
 from docx import Document
@@ -22,6 +21,233 @@ CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
 KEY_FILE = CONFIG_DIR / "key.bin"
 CONFIG_DIR.mkdir(exist_ok=True)
+
+def center_window(win, width=None, height=None):
+    """把窗口放到当前屏幕正中。"""
+    win.update_idletasks()
+
+    if width is None:
+        width = win.winfo_width()
+    if height is None:
+        height = win.winfo_height()
+
+    screen_width = win.winfo_screenwidth()
+    screen_height = win.winfo_screenheight()
+    x = max((screen_width - width) // 2, 0)
+    y = max((screen_height - height) // 2, 0)
+    win.geometry(f"{width}x{height}+{x}+{y}")
+
+
+def show_alert(parent, title, message, button_text="确定 [O]", width=520, height=220):
+    """可靠的模态提示框：按钮、Alt+字母、Enter、Esc、右上角关闭均可退出。"""
+    win = tk.Toplevel(parent)
+    win.title(title)
+    win.transient(parent)
+    win.resizable(False, False)
+
+    frame = ttk.Frame(win, padding=18)
+    frame.pack(fill="both", expand=True)
+
+    ttk.Label(
+        frame,
+        text=message,
+        justify="left",
+        wraplength=width - 50
+    ).pack(anchor="w", fill="both", expand=True, pady=(0, 14))
+
+    def close_alert(event=None):
+        # 先解除 grab，再销毁窗口，避免嵌套模态窗口时父窗口一直被锁住。
+        try:
+            win.grab_release()
+        except tk.TclError:
+            pass
+        if win.winfo_exists():
+            win.destroy()
+        return "break"
+
+    btn = ttk.Button(frame, text=button_text, command=close_alert)
+    btn.pack(side="right")
+
+    # 快捷键绑定在窗口本身，而不是按钮本身：
+    # 即使焦点在其它控件上，Alt+字母 / Enter / Esc 仍然有效。
+    m = re.search(r"\[([A-Za-z])\]", button_text)
+    if m:
+        key = m.group(1).lower()
+        win.bind(f"<Alt-KeyPress-{key}>", close_alert)
+    win.bind("<Return>", close_alert)
+    win.bind("<Escape>", close_alert)
+    win.protocol("WM_DELETE_WINDOW", close_alert)
+
+    center_window(win, width, height)
+    win.grab_set()
+    win.focus_force()
+    btn.focus_set()
+
+    parent.wait_window(win)
+
+
+def ask_retry_cancel(parent, title, message):
+    """可靠的“重试/取消”模态对话框，打开后立即接管键盘焦点。"""
+    result = {"value": False}
+
+    win = tk.Toplevel(parent)
+    win.title(title)
+    win.transient(parent)
+    win.resizable(False, False)
+
+    frame = ttk.Frame(win, padding=18)
+    frame.pack(fill="both", expand=True)
+
+    ttk.Label(frame, text=message, justify="left", wraplength=500).pack(
+        anchor="w", fill="both", expand=True, pady=(0, 14)
+    )
+
+    def choose(value, event=None):
+        result["value"] = value
+        try:
+            win.grab_release()
+        except tk.TclError:
+            pass
+        if win.winfo_exists():
+            win.destroy()
+        return "break"
+
+    btn_retry = ttk.Button(frame, text="重试 [R]", command=lambda: choose(True))
+    btn_cancel = ttk.Button(frame, text="取消 [C]", command=lambda: choose(False))
+    btn_cancel.pack(side="right")
+    btn_retry.pack(side="right", padx=(0, 8))
+
+    win.bind("<Alt-KeyPress-r>", choose_retry := lambda e: choose(True, e))
+    win.bind("<Alt-KeyPress-c>", choose_cancel := lambda e: choose(False, e))
+    win.bind("<Return>", choose_retry)
+    win.bind("<Escape>", choose_cancel)
+    win.protocol("WM_DELETE_WINDOW", choose_cancel)
+
+    center_window(win, 560, 220)
+    win.grab_set()
+    win.focus_force()
+    btn_retry.focus_set()
+    parent.wait_window(win)
+    return result["value"]
+
+
+def ask_export_conflict(parent, out_folder):
+    """目标文件夹已存在时，返回 overwrite / saveas / cancel。"""
+    result = {"value": None}
+
+    win = tk.Toplevel(parent)
+    win.title("目标文件夹已存在")
+    win.transient(parent)
+    win.resizable(False, False)
+
+    frame = ttk.Frame(win, padding=18)
+    frame.pack(fill="both", expand=True)
+
+    ttk.Label(
+        frame,
+        text=f"文件夹：\n{out_folder}\n已经存在！",
+        justify="left"
+    ).pack(anchor="w", pady=(0, 12))
+
+    ttk.Label(
+        frame,
+        text="请选择操作：\n"
+             "覆盖：覆盖本次导出的同名文件（保留文件夹中的其他文件）\n"
+             "另存为：给即将保存的文件夹改一个名字，仍保存在当前选定的目录下\n"
+             "取消：放弃本次导出",
+        justify="left"
+    ).pack(anchor="w", pady=(0, 12))
+
+    button_frame = ttk.Frame(frame)
+    button_frame.pack(fill="x")
+
+    def choose(value, event=None):
+        result["value"] = value
+        try:
+            win.grab_release()
+        except tk.TclError:
+            pass
+        if win.winfo_exists():
+            win.destroy()
+        return "break"
+
+    btn_overwrite = ttk.Button(button_frame, text="覆盖 [O]", command=lambda: choose("overwrite"))
+    btn_saveas = ttk.Button(button_frame, text="另存为 [S]", command=lambda: choose("saveas"))
+    btn_cancel = ttk.Button(button_frame, text="取消 [C]", command=lambda: choose("cancel"))
+
+    button_frame.columnconfigure(0, weight=1)
+    btn_overwrite.grid(row=0, column=0, sticky="e", padx=(0, 8))
+    btn_saveas.grid(row=0, column=1, sticky="e", padx=8)
+    btn_cancel.grid(row=0, column=2, sticky="e", padx=(8, 0))
+
+    win.bind("<Alt-KeyPress-o>", lambda e: choose("overwrite", e))
+    win.bind("<Alt-KeyPress-s>", lambda e: choose("saveas", e))
+    win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
+    win.bind("<Return>", lambda e: choose("overwrite", e))
+    win.bind("<Escape>", lambda e: choose("cancel", e))
+    win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
+
+    center_window(win, 760, 230)
+    win.grab_set()
+    win.focus_force()
+    btn_overwrite.focus_set()
+    parent.wait_window(win)
+    return result["value"]
+
+
+def ask_saveas_folder_name(parent, initial_name):
+    """让用户输入另存为的文件夹名称，并返回名称；取消时返回 None。"""
+    result = {"value": None}
+
+    win = tk.Toplevel(parent)
+    win.title("另存为")
+    win.transient(parent)
+    win.resizable(False, False)
+
+    frame = ttk.Frame(win, padding=18)
+    frame.pack(fill="both", expand=True)
+
+    ttk.Label(frame, text="请输入新的文件夹名称：", justify="left").pack(
+        anchor="w", pady=(0, 8)
+    )
+
+    name_var = tk.StringVar(value=initial_name)
+    entry = ttk.Entry(frame, textvariable=name_var, width=80)
+    entry.pack(fill="x", pady=(0, 14))
+
+    button_frame = ttk.Frame(frame)
+    button_frame.pack(fill="x")
+
+    def choose(value, event=None):
+        if value == "ok":
+            result["value"] = name_var.get()
+        try:
+            win.grab_release()
+        except tk.TclError:
+            pass
+        if win.winfo_exists():
+            win.destroy()
+        return "break"
+
+    btn_ok = ttk.Button(button_frame, text="确定 [O]", command=lambda: choose("ok"))
+    btn_cancel = ttk.Button(button_frame, text="取消 [C]", command=lambda: choose("cancel"))
+    btn_cancel.pack(side="right")
+    btn_ok.pack(side="right", padx=(8, 0))
+
+    win.bind("<Alt-KeyPress-o>", lambda e: choose("ok", e))
+    win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
+    win.bind("<Return>", lambda e: choose("ok", e))
+    win.bind("<Escape>", lambda e: choose("cancel", e))
+    win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
+
+    center_window(win, 720, 150)
+    win.grab_set()
+    win.focus_force()
+    entry.focus_set()
+    entry.selection_range(0, tk.END)
+    parent.wait_window(win)
+    return result["value"]
+
 
 def get_cipher():
     if not KEY_FILE.exists():
@@ -73,7 +299,7 @@ def _set_run_font(run, size_pt):
 
 def convert_halfwidth_punct(s: str) -> str:
     """
-    正文半角标点转全角，智能配对双引号/单引号；书名号《》保留不动
+    正文排版：将常见半角标点转换为全角标点，并自动配对中英文引号；书名号《》保持不变。
     映射：
     , . ! ? : ; () [] {} → ，。！？：；（）［］｛｝
     半角 " ' 做左右引号配对：奇数次左引号“ ‘，偶数次右引号” ’
@@ -124,6 +350,91 @@ def convert_halfwidth_punct(s: str) -> str:
     return "".join(out_chars2)
 
 
+def normalize_title_for_export(title):
+    """
+    根据标题中的《》/<>，生成：
+    1. display_title：Word/TXT 文章中实际显示的标题
+    2. file_title：文件夹名/文件名内部使用的标题
+
+    Windows 文件名不能使用半角 < >，因此 file_title 中使用全角 ＜ ＞。
+    """
+    title = title.strip()
+
+    # 如果《》或<>完整包住整个标题：排版时去掉最外层。
+    if len(title) >= 2 and title.startswith("《") and title.endswith("》"):
+        inner = title[1:-1].strip()
+        if inner:
+            return inner, make_windows_safe_filename(inner)
+
+    if len(title) >= 2 and title.startswith("<") and title.endswith(">"):
+        inner = title[1:-1].strip()
+        if inner:
+            return inner, make_windows_safe_filename(inner)
+
+    def contains_chinese(s):
+        return any("\u4e00" <= ch <= "\u9fff" for ch in s)
+
+    import re
+    pattern = re.compile(r"(《|<)([^《》<>]+)(》|>)")
+
+    display_parts = []
+    file_parts = []
+    last = 0
+
+    for match in pattern.finditer(title):
+        display_parts.append(title[last:match.start()])
+        file_parts.append(title[last:match.start()])
+
+        left = match.group(1)
+        content = match.group(2)
+
+        # 文件夹/文件名内部统一使用 <内容> 的逻辑形式。
+        file_marked = f"<{content}>"
+
+        # 《》/<> 包裹中文或中英混合：文章标题使用《》。
+        # 包裹全英文：文章标题使用<>。
+        if contains_chinese(content):
+            display_marked = f"《{content}》"
+        else:
+            display_marked = file_marked
+
+        display_parts.append(display_marked)
+        file_parts.append(file_marked)
+        last = match.end()
+
+    display_parts.append(title[last:])
+    file_parts.append(title[last:])
+
+    display_title = "".join(display_parts)
+    file_title = make_windows_safe_filename("".join(file_parts))
+
+    return display_title, file_title
+
+
+def make_windows_safe_filename(name):
+    """
+    把 Windows 文件名禁止字符替换成视觉接近、但允许使用的全角字符。
+    文章标题本身不修改，只用于文件夹名/文件名。
+    """
+    replacements = {
+        "<": "＜",
+        ">": "＞",
+        ":": "：",
+        '"': "＂",
+        "/": "／",
+        "\\": "＼",
+        "|": "｜",
+        "?": "？",
+        "*": "＊",
+    }
+
+    safe = "".join(replacements.get(ch, ch) for ch in name)
+
+    # Windows 不允许文件名/文件夹名以空格或句号结尾。
+    safe = safe.rstrip(" .")
+    return safe
+
+
 def count_cn_and_word(body_lines):
     """
     按 WPS 常见“字数”口径统计正文：
@@ -166,6 +477,7 @@ def count_cn_and_word(body_lines):
     return character_count, word_count, total
 
 
+
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -197,7 +509,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.13")
+        self.title("投稿排版助手 v1.0.14")
         win_w = 780
         screen_h = self.winfo_screenheight()
         win_h = min(620, screen_h - 100)
@@ -222,7 +534,7 @@ class App(tk.Tk):
         content_wrapper.grid(row=0, column=0, sticky="nsew", padx=20)
         content_wrapper.columnconfigure(1, weight=1)
         row_idx = 0
-        ttk.Label(content_wrapper, text="1. 选择文件（支持.docx/.txt/.md格式。.doc文件请另存为以上任意格式后排版）").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(0,4))
+        ttk.Label(content_wrapper, text="1. 选择文件（支持 .docx、.txt、.md；不支持旧版 .doc，请先另存为 .docx）").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(0,4))
         row_idx += 1
         fr1 = ttk.Frame(content_wrapper)
         fr1.grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=2)
@@ -231,7 +543,7 @@ class App(tk.Tk):
         self.file_path_var = tk.StringVar()
         e_file = ttk.Entry(fr1, textvariable=self.file_path_var)
         e_file.pack(side="left", fill="x", expand=True)
-        btn_browse1 = ttk.Button(fr1, text="浏览", command=self.select_file, takefocus=True)
+        btn_browse1 = ttk.Button(fr1, text="浏览文件 [B]", command=self.select_file, takefocus=True)
         btn_browse1.pack(side="left", padx=5)
         self._grid_rows.append([e_file, btn_browse1])
         ttk.Label(content_wrapper, text="2. 选择输出保存文件夹").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,4))
@@ -243,7 +555,7 @@ class App(tk.Tk):
         self.save_dir_var = tk.StringVar(value=self.cfg.get("last_save_dir",""))
         e_save = ttk.Entry(fr2, textvariable=self.save_dir_var)
         e_save.pack(side="left", fill="x", expand=True)
-        btn_browse2 = ttk.Button(fr2, text="浏览", command=self.select_save_folder, takefocus=True)
+        btn_browse2 = ttk.Button(fr2, text="浏览文件夹 [L]", command=self.select_save_folder, takefocus=True)
         btn_browse2.pack(side="left", padx=5)
         self._grid_rows.append([e_save, btn_browse2])
         ttk.Label(content_wrapper, text="3. 文章信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
@@ -277,7 +589,7 @@ class App(tk.Tk):
             entry.grid(row=idx,column=1,sticky="ew",padx=5,pady=1)
             self.contact_vars[key] = (var, entry)
             self._grid_rows.append([entry])
-        ttk.Label(content_wrapper, text="5. 银行信息（最多4组，联行号如报社、杂志社无要求，可不填写）").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
+        ttk.Label(content_wrapper, text="5. 银行信息（最多4组；如收稿方未要求填写联行号，可留空）").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
         self.bank_container = ttk.Frame(content_wrapper)
         self.bank_container.grid(row=row_idx, column=0, columnspan=2, sticky="ew")
@@ -285,16 +597,22 @@ class App(tk.Tk):
         row_idx +=1
         self.bank_frames = []
         self.bank_data = []
-        self.btn_add_bank = ttk.Button(content_wrapper, text="添加银行", command=self.add_bank_group, takefocus=True)
+        self.btn_add_bank = ttk.Button(content_wrapper, text="添加银行 [G]", command=self.add_bank_group, takefocus=True)
         self._grid_rows.append([self.btn_add_bank])
         for b in self.cfg["banks"]:
             self.add_bank_group(init_data=b)
         self.btn_add_bank.grid(row=row_idx, column=0, sticky="w",pady=3)
         row_idx +=1
-        self.export_btn = ttk.Button(content_wrapper, text="开始排版并导出", command=self.do_export, takefocus=True)
+        self.export_btn = ttk.Button(content_wrapper, text="开始排版并导出 [X]", command=self.do_export, takefocus=True)
         self.export_btn.grid(row=row_idx, column=0, columnspan=2, pady=12)
         self._grid_rows.append([self.export_btn])
         self._bind_keys()
+
+        # Windows 风格面板快捷键：Alt+字母直接执行对应按钮。
+        self.bind_all("<Alt-b>", lambda e: (self.select_file(), "break")[1])
+        self.bind_all("<Alt-l>", lambda e: (self.select_save_folder(), "break")[1])
+        self.bind_all("<Alt-g>", lambda e: (self.add_bank_group(), "break")[1])
+        self.bind_all("<Alt-x>", lambda e: (self.export_btn.invoke(), "break")[1])
         self.after(100, lambda: self._focus_widget(btn_browse1))
 
     def _find_widget_position(self, widget):
@@ -399,34 +717,54 @@ class App(tk.Tk):
             if c < len(row) - 1:
                 self._focus_widget(row[c + 1])
             return "break"
-        self.bind("<Up>", move_up)
-        self.bind("<Down>", move_down)
-        self.bind("<Left>", move_left)
-        self.bind("<Right>", move_right)
+        # 使用 bind_all，让焦点在 Entry 等子控件时方向键也能交给排版助手的导航逻辑。
+        # 仅当当前焦点确实属于主窗口时才处理，避免干扰其它弹窗。
+        def in_main_window():
+            current = self.focus_get()
+            if current is None:
+                return False
+            try:
+                return current.winfo_toplevel() is self
+            except tk.TclError:
+                return False
+
+        def guarded(handler):
+            def _handler(event=None):
+                if not in_main_window():
+                    return
+                return handler(event)
+            return _handler
+
+        self.bind_all("<Up>", guarded(move_up), add="+")
+        self.bind_all("<Down>", guarded(move_down), add="+")
+        self.bind_all("<Left>", guarded(move_left), add="+")
+        self.bind_all("<Right>", guarded(move_right), add="+")
         def on_return(event=None):
             widget = self.focus_get()
             if isinstance(widget, ttk.Button):
                 widget.invoke()
                 return "break"
             return "break"
-        self.bind("<Return>", on_return)
-        self.bind("<KP_Enter>", on_return)
+        self.bind_all("<Return>", guarded(on_return), add="+")
+        self.bind_all("<KP_Enter>", guarded(on_return), add="+")
 
     def select_file(self):
         init_dir = self.cfg.get("last_file_dir","")
         fp = filedialog.askopenfilename(
+            parent=self,
             initialdir=init_dir,
-            filetypes=[("支持文件","*.docx;*.txt;*.md"),("Word文档","*.docx"),("文本文件","*.txt;*.md"),("老版Word","*.doc")]
+            filetypes=[("支持文件","*.docx;*.txt;*.md"),("Word文档","*.docx"),("文本文件","*.txt;*.md")]
         )
         if not fp:
             return
         if fp.lower().endswith(".doc"):
-            messagebox.showwarning("格式不支持", "请用word另存为docx或txt格式")
+            show_alert(self, "格式不支持", "请用 Word 另存为 docx 或 txt 格式", "确定 [O]")
             return
         self.file_path_var.set(fp)
         self.cfg["last_file_dir"] = os.path.dirname(fp)
         title, author = self.parse_file(fp)
-        self.title_var.set(title)
+        display_title, _ = normalize_title_for_export(title)
+        self.title_var.set(display_title)
         self.author_var.set(author)
 
     def parse_file(self, filepath):
@@ -445,19 +783,19 @@ class App(tk.Tk):
                 if len(paras)>=1: title = paras[0]
                 if len(paras)>=2: author = paras[1]
         except Exception as e:
-            messagebox.showerror("读取失败", str(e))
+            show_alert(self, "读取失败", str(e))
         return title, author
 
     def select_save_folder(self):
         init_dir = self.cfg.get("last_save_dir","")
-        folder = filedialog.askdirectory(initialdir=init_dir)
+        folder = filedialog.askdirectory(parent=self, initialdir=init_dir)
         if folder:
             self.save_dir_var.set(folder)
             self.cfg["last_save_dir"] = folder
 
     def add_bank_group(self, init_data=None):
         if len(self.bank_frames)>=4:
-            messagebox.showinfo("提示", "最多只能添加4组银行信息")
+            show_alert(self, "提示", "最多只能添加4组银行信息")
             return
         data = init_data or {"银行名称":"","账号":"","开户支行":"","联行号":""}
         fr = ttk.Frame(self.bank_container)
@@ -485,8 +823,17 @@ class App(tk.Tk):
         vars_dict["账号"] = (var_card, entry_card)
         vars_dict["开户支行"] = (var_branch, entry_branch)
         vars_dict["联行号"] = (var_lxh, entry_lxh)
-        btn_del = ttk.Button(fr, text="删除本组", takefocus=True)
+        btn_del = ttk.Button(fr, text="删除本组 [D]", takefocus=True)
         btn_del.grid(row=0, column=4, rowspan=2, padx=4)
+
+        # Alt+D 属于“这一组银行信息”的快捷键，而不是“删除按钮”的快捷键。
+        # 因此焦点停在本组任意输入框时，都可以直接删除整组。
+        def delete_group_shortcut(event=None):
+            btn_del.invoke()
+            return "break"
+
+        for entry_widget in (entry_bank, entry_card, entry_branch, entry_lxh, btn_del):
+            entry_widget.bind("<Alt-KeyPress-d>", delete_group_shortcut)
         try:
             insert_idx = self._grid_rows.index([self.btn_add_bank])
         except (ValueError, AttributeError):
@@ -558,9 +905,11 @@ class App(tk.Tk):
                 entry.config(background="white")
         title = self.title_var.get().strip()
         author = self.author_var.get().strip()
+
+        display_title, file_title = normalize_title_for_export(title)
         save_root = self.save_dir_var.get().strip()
         if not all([title, author, save_root]):
-            messagebox.showerror("缺失", "标题、作者、保存文件夹不能为空")
+            show_alert(self, "缺失", "标题、作者、保存文件夹不能为空")
             return
         error_text = ""
         contact = {}
@@ -579,36 +928,79 @@ class App(tk.Tk):
                     entry.config(background="#ffcccc")
                     error_text += f"第{bank_idx+1}组银行信息：{ck} 为空\n"
         if error_text:
-            messagebox.showerror("必填项缺失", error_text)
+            show_alert(self, "必填项缺失", error_text, width=620, height=300)
             return
 
-        sub_folder_name = f"《{title}》投稿"
+        sub_folder_name = f"《{file_title}》投稿"
         out_folder = Path(save_root) / sub_folder_name
+        fn_base = f"《{file_title}》{author}"
 
         if out_folder.exists():
-            res = messagebox.askyesnocancel("目标文件夹已存在",
-                f"文件夹：\n{out_folder}\n已经存在！\n\n【是】覆盖（清空整个文件夹）\n【否】另存为（选择新的保存位置）\n【取消】放弃本次导出")
-            if res is None:
+            choice = ask_export_conflict(self, out_folder)
+            if choice == "cancel":
                 return
-            elif res is False:
-                new_base_dir = filedialog.askdirectory(title="选择另存为的父目录", initialdir=save_root)
-                if not new_base_dir:
-                    return
-                out_folder = Path(new_base_dir) / sub_folder_name
-            elif res is True:
+            elif choice == "saveas":
+                # 可以反复输入：名称为空或目标已存在时，提示后重新打开输入框。
+                while True:
+                    new_folder_name = ask_saveas_folder_name(self, sub_folder_name)
+                    if new_folder_name is None:
+                        return
+
+                    new_folder_name = new_folder_name.strip()
+                    if not new_folder_name:
+                        show_alert(
+                            self,
+                            "提示",
+                            "文件夹名称不能为空，请重新输入。"
+                        )
+                        continue
+
+                    out_folder = Path(save_root) / new_folder_name
+
+                    if out_folder.exists():
+                        show_alert(
+                            self,
+                            "文件夹已存在",
+                            f"文件夹：\n{out_folder}\n已经存在，请换一个名称。"
+                        )
+                        continue
+
+                    break
+
+            elif choice == "overwrite":
+                docx_path = out_folder / f"{fn_base}.docx"
+                txt_path = out_folder / f"{fn_base}.txt"
+
                 del_ok = False
                 while not del_ok:
                     try:
-                        shutil.rmtree(out_folder)
+                        for output_path in (docx_path, txt_path):
+                            if output_path.exists():
+                                output_path.unlink()
                         del_ok = True
                     except OSError:
-                        ans = messagebox.askretrycancel("文件夹占用",
-                            "目标文件夹或者内部文件正在被占用，请关闭相关文件/文件夹后重试")
+                        ans = ask_retry_cancel(
+                            self,
+                            "文件占用",
+                            "要覆盖的同名文件正在被占用，请关闭相关文件后重试"
+                        )
                         if not ans:
                             return
-        out_folder.mkdir(parents=True, exist_ok=False)
 
-        fn_base = f"《{title}》{author}"
+        if not out_folder.exists():
+            try:
+                out_folder.mkdir(parents=True, exist_ok=False)
+            except OSError as e:
+                show_alert(
+                    self,
+                    "无法创建文件夹",
+                    f"文件夹无法创建：\n\n{out_folder.name}\n\n"
+                    f"错误信息：{e}",
+                    width=620,
+                    height=280
+                )
+                return
+
         docx_path = out_folder / f"{fn_base}.docx"
         txt_path = out_folder / f"{fn_base}.txt"
         fp = self.file_path_var.get()
@@ -626,7 +1018,7 @@ class App(tk.Tk):
         doc = Document()
         p = doc.add_paragraph()
         _set_para(p, align=WD_ALIGN_PARAGRAPH.CENTER)
-        run = p.add_run(title)
+        run = p.add_run(display_title)
         _set_run_font(run, 14)
         run.bold = False
         p = doc.add_paragraph()
@@ -686,13 +1078,16 @@ class App(tk.Tk):
                 doc.save(docx_path)
                 save_ok = True
             except PermissionError:
-                res = messagebox.askretrycancel("文件占用",
-                    "目标文件或文件夹正在被占用，请关闭相关文件/文件夹后重试")
+                res = ask_retry_cancel(
+                    self,
+                    "文件占用",
+                    "目标文件或文件夹正在被占用，请关闭相关文件/文件夹后重试"
+                )
                 if not res:
                     return
 
         txt_content = []
-        txt_content.append(title)
+        txt_content.append(display_title)
         txt_content.append(author)
         for bl in processed_body_lines:
             bl = bl.strip()
@@ -721,17 +1116,32 @@ class App(tk.Tk):
         save_config(self.cfg)
         win = tk.Toplevel(self)
         win.title("导出成功")
+        win.transient(self)
+        win.resizable(False, False)
+        win.grab_set()
         win.geometry("320x120")
         win.update()
         sw2 = win.winfo_screenwidth()
         sh2 = win.winfo_screenheight()
         win.geometry(f"320x120+{int((sw2-320)/2)}+{int((sh2-120)/2)}")
         ttk.Label(win, text=f"文件已导出到：\n{out_folder}", wraplength=300).pack(pady=15)
-        def close_all():
-            win.destroy()
+        def close_all(event=None):
+            try:
+                win.grab_release()
+            except tk.TclError:
+                pass
+            if win.winfo_exists():
+                win.destroy()
             self.open_folder(out_folder)
             self.quit()
-        ttk.Button(win, text="关闭", command=close_all).pack()
+            return "break"
+        close_btn = ttk.Button(win, text="关闭 [C]", command=close_all)
+        close_btn.pack()
+        win.bind("<Alt-KeyPress-c>", close_all)
+        win.bind("<Return>", close_all)
+        win.bind("<Escape>", close_all)
+        win.protocol("WM_DELETE_WINDOW", close_all)
+        win.after_idle(lambda: (win.focus_force(), close_btn.focus_set()))
         win.after(3000, close_all)
 
     def read_full_text(self,filepath):
