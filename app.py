@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.14
+投稿排版助手 v1.0.15
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -350,6 +350,34 @@ def convert_halfwidth_punct(s: str) -> str:
     return "".join(out_chars2)
 
 
+
+def validate_title_book_marks(title):
+    """
+    检查标题中的书名号是否成对完整。
+    返回 None 表示正常；返回提示语表示标题需要修改。
+    """
+    pairs = {
+        "《": "》",
+        "<": ">"
+    }
+
+    stack = []
+    closing_to_opening = {"》": "《", ">": "<"}
+
+    for ch in title:
+        if ch in pairs:
+            stack.append(ch)
+        elif ch in closing_to_opening:
+            if not stack or stack[-1] != closing_to_opening[ch]:
+                return "标题中的书名号不完整，请在标题输入框中填写完整的书名号后再导出。"
+            stack.pop()
+
+    if stack:
+        return "标题中的书名号不完整，请在标题输入框中填写完整的书名号后再导出。"
+
+    return None
+
+
 def normalize_title_for_export(title):
     """
     根据标题中的《》/<>，生成：
@@ -509,7 +537,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.14")
+        self.title("投稿排版助手 v1.0.15")
         win_w = 780
         screen_h = self.winfo_screenheight()
         win_h = min(620, screen_h - 100)
@@ -906,8 +934,23 @@ class App(tk.Tk):
         title = self.title_var.get().strip()
         author = self.author_var.get().strip()
 
-        display_title, file_title = normalize_title_for_export(title)
+        title_error = validate_title_book_marks(title)
+        if title_error:
+            show_alert(self, "标题格式有误", title_error)
+            return
+
+        fp = self.file_path_var.get().strip()
         save_root = self.save_dir_var.get().strip()
+
+        # 导出前先检查源文件，避免用户没有选择文件时继续创建输出文件夹。
+        if not fp:
+            show_alert(self, "缺失", "请先选择要排版的文件。")
+            return
+        if not Path(fp).is_file():
+            show_alert(self, "文件不存在", "当前选择的排版文件不存在，请重新选择。")
+            return
+
+        display_title, file_title = normalize_title_for_export(title)
         if not all([title, author, save_root]):
             show_alert(self, "缺失", "标题、作者、保存文件夹不能为空")
             return
@@ -1003,7 +1046,6 @@ class App(tk.Tk):
 
         docx_path = out_folder / f"{fn_base}.docx"
         txt_path = out_folder / f"{fn_base}.txt"
-        fp = self.file_path_var.get()
         content_lines = self.read_full_text(fp)
         raw_body_lines = content_lines[2:] if len(content_lines)>=3 else []
 
@@ -1016,6 +1058,13 @@ class App(tk.Tk):
         cn_cnt, word_cnt, total_cnt = count_cn_and_word(processed_body_lines)
 
         doc = Document()
+        # 明确把 Word 正文及空白分隔段的默认行距统一设为单倍，
+        # 避免空白段落继承 Word 默认样式而出现 1.5 倍行距。
+        normal_fmt = doc.styles["Normal"].paragraph_format
+        normal_fmt.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        normal_fmt.space_before = Pt(0)
+        normal_fmt.space_after = Pt(0)
+
         p = doc.add_paragraph()
         _set_para(p, align=WD_ALIGN_PARAGRAPH.CENTER)
         run = p.add_run(display_title)
@@ -1039,7 +1088,8 @@ class App(tk.Tk):
         _set_para(p, align=WD_ALIGN_PARAGRAPH.RIGHT)
         run = p.add_run(f"（正文：{total_cnt} 字）")
         _set_run_font(run, 10.5)
-        doc.add_paragraph()
+        p = doc.add_paragraph()
+        _set_para(p)
         p = doc.add_paragraph()
         _set_para(p)
         run = p.add_run("联系信息：")
@@ -1050,7 +1100,8 @@ class App(tk.Tk):
             _set_para(p)
             run = p.add_run(f"{key}：{val}")
             _set_run_font(run, 10.5)
-        doc.add_paragraph()
+        p = doc.add_paragraph()
+        _set_para(p)
         for idx,bank in enumerate(bank_list):
             p = doc.add_paragraph()
             _set_para(p)
@@ -1069,8 +1120,10 @@ class App(tk.Tk):
                 run = p.add_run(f"联行号：{lxh_val}")
                 _set_run_font(run, 10.5)
             if idx != len(bank_list)-1:
-                doc.add_paragraph()
-        doc.add_paragraph()
+                p = doc.add_paragraph()
+                _set_para(p)
+        p = doc.add_paragraph()
+        _set_para(p)
 
         save_ok = False
         while not save_ok:
