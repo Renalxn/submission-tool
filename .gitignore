@@ -2,17 +2,13 @@
 # 密钥环境文件
 .env
 *.key
-
 # Python缓存
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
 # 临时文件、日志
 *.log
 tmp/
-
-
-tougao.py
-tougao_tkinter_����.py
+# qk-suite下全部参考资料目录，不纳入版本管理
+qk-suite/refs/
