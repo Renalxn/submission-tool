@@ -1,14 +1,16 @@
+# 本地 AI 工具配置
 .qwen/
-# 密钥环境文件
+
+# 密钥与环境配置
 .env
+.env.*
+!.env.example
 *.key
-# Python缓存
+
+# Python 缓存
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-# 临时文件、日志
+*.py[cod]
+
+# 日志与临时文件
 *.log
 tmp/
-# qk-suite下全部参考资料目录，不纳入版本管理
-qk-suite/refs/
