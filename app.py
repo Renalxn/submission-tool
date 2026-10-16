@@ -22,7 +22,7 @@ import stat
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
 KEY_FILE = CONFIG_DIR / "key.bin"
-CONFIG_DIR.mkdir(exist_ok=True)
+# 注意：CONFIG_DIR 的创建已移到 get_cipher() 内部，按需创建
 
 def center_window(win, width=None, height=None):
     """把窗口放到当前屏幕正中。"""
@@ -253,6 +253,9 @@ def ask_saveas_folder_name(parent, initial_name):
 
 def get_cipher():
     """获取加密 cipher（修复密钥文件权限问题）"""
+    # 按需创建配置目录（修复模块导入时自动创建目录的问题）
+    CONFIG_DIR.mkdir(exist_ok=True)
+    
     if not KEY_FILE.exists():
         key = Fernet.generate_key()
         KEY_FILE.write_bytes(key)
