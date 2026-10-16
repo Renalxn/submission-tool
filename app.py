@@ -40,12 +40,29 @@ def center_window(win, width=None, height=None):
     win.geometry(f"{width}x{height}+{x}+{y}")
 
 
-def show_alert(parent, title, message, button_text="确定 [O]", width=520, height=220):
+def show_alert(parent, title, message, button_text="确定 [O]", width=None, height=None):
     """可靠的模态提示框：按钮、Alt+字母、Enter、Esc、右上角关闭均可退出。"""
     win = tk.Toplevel(parent)
     win.title(title)
     win.transient(parent)
     win.resizable(False, False)
+    
+    # 获取主窗口尺寸，用于计算弹窗最大尺寸
+    parent.update_idletasks()
+    parent_width = parent.winfo_width()
+    parent_height = parent.winfo_height()
+    
+    # 如果没有指定尺寸，根据内容自动计算
+    if width is None or height is None:
+        # 根据消息长度计算合适的宽度
+        max_line_length = max(len(line) for line in message.split('\n')) if message else 0
+        calculated_width = min(max(max_line_length * 10 + 80, 400), int(parent_width * 0.8))
+        # 根据消息行数计算合适的高度
+        line_count = len(message.split('\n')) if message else 1
+        calculated_height = min(max(line_count * 25 + 120, 180), int(parent_height * 0.7))
+        
+        width = width or calculated_width
+        height = height or calculated_height
 
     frame = ttk.Frame(win, padding=18)
     frame.pack(fill="both", expand=True)
@@ -89,18 +106,29 @@ def show_alert(parent, title, message, button_text="确定 [O]", width=520, heig
 
 
 def ask_retry_cancel(parent, title, message):
-    """可靠的“重试/取消”模态对话框，打开后立即接管键盘焦点。"""
+    """可靠的"重试/取消"模态对话框，打开后立即接管键盘焦点。"""
     result = {"value": False}
 
     win = tk.Toplevel(parent)
     win.title(title)
     win.transient(parent)
     win.resizable(False, False)
+    
+    # 获取主窗口尺寸，用于计算弹窗最大尺寸
+    parent.update_idletasks()
+    parent_width = parent.winfo_width()
+    parent_height = parent.winfo_height()
+    
+    # 根据消息长度计算合适的尺寸
+    max_line_length = max(len(line) for line in message.split('\n')) if message else 0
+    width = min(max(max_line_length * 10 + 80, 400), int(parent_width * 0.8))
+    line_count = len(message.split('\n')) if message else 1
+    height = min(max(line_count * 25 + 120, 180), int(parent_height * 0.7))
 
     frame = ttk.Frame(win, padding=18)
     frame.pack(fill="both", expand=True)
 
-    ttk.Label(frame, text=message, justify="left", wraplength=500).pack(
+    ttk.Label(frame, text=message, justify="left", wraplength=width - 50).pack(
         anchor="w", fill="both", expand=True, pady=(0, 14)
     )
 
@@ -125,7 +153,7 @@ def ask_retry_cancel(parent, title, message):
     win.bind("<Escape>", choose_cancel)
     win.protocol("WM_DELETE_WINDOW", choose_cancel)
 
-    center_window(win, 560, 220)
+    center_window(win, width, height)
     win.grab_set()
     win.focus_force()
     btn_retry.focus_set()
@@ -141,6 +169,15 @@ def ask_export_conflict(parent, out_folder):
     win.title("目标文件夹已存在")
     win.transient(parent)
     win.resizable(False, False)
+    
+    # 获取主窗口尺寸
+    parent.update_idletasks()
+    parent_width = parent.winfo_width()
+    parent_height = parent.winfo_height()
+    
+    # 根据内容计算尺寸
+    width = min(760, int(parent_width * 0.8))
+    height = min(280, int(parent_height * 0.7))
 
     frame = ttk.Frame(win, padding=18)
     frame.pack(fill="both", expand=True)
@@ -148,7 +185,8 @@ def ask_export_conflict(parent, out_folder):
     ttk.Label(
         frame,
         text=f"文件夹：\n{out_folder}\n已经存在！",
-        justify="left"
+        justify="left",
+        wraplength=width - 50
     ).pack(anchor="w", pady=(0, 12))
 
     ttk.Label(
@@ -157,7 +195,8 @@ def ask_export_conflict(parent, out_folder):
              "覆盖：覆盖本次导出的同名文件（保留文件夹中的其他文件）\n"
              "另存为：给即将保存的文件夹改一个名字，仍保存在当前选定的目录下\n"
              "取消：放弃本次导出",
-        justify="left"
+        justify="left",
+        wraplength=width - 50
     ).pack(anchor="w", pady=(0, 12))
 
     button_frame = ttk.Frame(frame)
@@ -189,7 +228,7 @@ def ask_export_conflict(parent, out_folder):
     win.bind("<Escape>", lambda e: choose("cancel", e))
     win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
 
-    center_window(win, 760, 230)
+    center_window(win, width, height)
     win.grab_set()
     win.focus_force()
     btn_overwrite.focus_set()
@@ -205,11 +244,19 @@ def ask_saveas_folder_name(parent, initial_name):
     win.title("另存为")
     win.transient(parent)
     win.resizable(False, False)
+    
+    # 获取主窗口尺寸
+    parent.update_idletasks()
+    parent_width = parent.winfo_width()
+    
+    # 根据内容计算尺寸
+    width = min(720, int(parent_width * 0.8))
+    height = 180
 
     frame = ttk.Frame(win, padding=18)
     frame.pack(fill="both", expand=True)
 
-    ttk.Label(frame, text="请输入新的文件夹名称：", justify="left").pack(
+    ttk.Label(frame, text="请输入新的文件夹名称：", justify="left", wraplength=width - 50).pack(
         anchor="w", pady=(0, 8)
     )
 
@@ -242,7 +289,7 @@ def ask_saveas_folder_name(parent, initial_name):
     win.bind("<Escape>", lambda e: choose("cancel", e))
     win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
 
-    center_window(win, 720, 150)
+    center_window(win, width, height)
     win.grab_set()
     win.focus_force()
     entry.focus_set()
@@ -524,26 +571,35 @@ def count_cn_and_word(body_lines):
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
-        self.canvas = tk.Canvas(self)
+        self.canvas = tk.Canvas(self, highlightthickness=0)
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scroll_frame = ttk.Frame(self.canvas)
         self.scroll_frame.grid_columnconfigure(0, weight=1)
         self.scroll_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas_window = self.canvas.create_window((0,0), window=self.scroll_frame, anchor="nw", width=720)
+        # 使用动态宽度，跟随 Canvas 宽度变化
+        self.canvas_window = self.canvas.create_window((0,0), window=self.scroll_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        
+        # 绑定 Canvas 大小变化事件，动态调整内部窗口宽度
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
         
         # 修复 Linux 鼠标滚轮问题
         if platform.system() == "Linux":
             # Linux 使用 Button-4（向上）和 Button-5（向下）
             self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-3, "units"))
             self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(3, "units"))
+            # 让内部 frame 也能响应滚轮
+            self.scroll_frame.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-3, "units"))
+            self.scroll_frame.bind("<Button-5>", lambda e: self.canvas.yview_scroll(3, "units"))
         else:
             # Windows 和 macOS 使用 MouseWheel
             def _on_mousewheel(event):
                 self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             self.canvas.bind("<MouseWheel>", _on_mousewheel)
+            # 让内部 frame 也能响应滚轮
+            self.scroll_frame.bind("<MouseWheel>", _on_mousewheel)
     def scroll_widget_into_view(self, widget):
         self.canvas.update_idletasks()
         widget_y = widget.winfo_y()
@@ -946,6 +1002,9 @@ class App(tk.Tk):
         self.bank_data.append(vars_dict)
         if init_data is None:
             self._focus_widget(entry_bank)
+        
+        # 自动滚动到新添加的输入框，确保它在可视区域内
+        self.after(100, lambda: self.scroll_frame.scroll_widget_into_view(fr))
 
     def get_bank_list(self):
         res = []
