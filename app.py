@@ -819,6 +819,7 @@ class App(tk.Tk):
         self.author_var.set(author)
 
     def parse_file(self, filepath):
+        """解析文件，提取标题和作者（修复不支持的文件类型处理）"""
         ext = filepath.lower().split(".")[-1]
         title, author = "", ""
         try:
@@ -833,6 +834,8 @@ class App(tk.Tk):
                 paras = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
                 if len(paras)>=1: title = paras[0]
                 if len(paras)>=2: author = paras[1]
+            else:
+                raise ValueError(f"不支持的文件格式：{ext}")
         except Exception as e:
             show_alert(self, "读取失败", str(e))
         return title, author
@@ -1226,6 +1229,7 @@ class App(tk.Tk):
         win.after(3000, close_all)
 
     def read_full_text(self,filepath):
+        """读取文件全文（修复不支持的文件类型处理）"""
         ext = filepath.lower().split(".")[-1]
         lines = []
         if ext in ["txt","md"]:
@@ -1235,6 +1239,8 @@ class App(tk.Tk):
             from docx import Document
             doc = Document(filepath)
             lines = [p.text for p in doc.paragraphs]
+        else:
+            raise ValueError(f"不支持的文件格式：{ext}")
         return lines
 
 if __name__ == "__main__":
