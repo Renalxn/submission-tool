@@ -2,9 +2,9 @@
 """
 PyInstaller spec file for 投稿排版助手
 Usage:
-  Windows: pyinstaller submission_tool.spec
-  macOS:   pyinstaller submission_tool.spec
-  Linux:   pyinstaller submission_tool.spec
+  Windows: pyinstaller subtool.spec
+  macOS:   pyinstaller subtool.spec
+  Linux:   pyinstaller subtool.spec
 """
 
 block_cipher = None
@@ -15,23 +15,19 @@ a = Analysis(
     binaries=[],
     datas=[],
     hiddenimports=[
-        'streamlit',
-        'streamlit.web',
-        'streamlit.web.cli',
-        'streamlit.runtime',
-        'streamlit.runtime.scriptrunner',
-        'streamlit.elements',
         'docx',
         'docx.shared',
         'docx.enum',
         'docx.enum.text',
-        'markdown',
-        'jinja2',
+        'docx.oxml',
+        'docx.oxml.ns',
+        'cryptography',
+        'cryptography.fernet',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['streamlit', 'markdown'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -56,6 +52,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='1.0.15',
 )
 
 coll = COLLECT(
