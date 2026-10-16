@@ -603,7 +603,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.19")
+        self.title("投稿排版助手 v1.0.20")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1057,11 +1057,11 @@ class App(tk.Tk):
         def scroll_to_new_frame():
             # 强制更新所有待处理的几何计算
             self.update_idletasks()
-            self.canvas.update_idletasks()
+            self.scroll_frame.canvas.update_idletasks()
             fr.update_idletasks()
             
             # 获取新增 frame 在 canvas 坐标系中的位置
-            canvas_window_coords = self.canvas.coords(self.canvas_window)
+            canvas_window_coords = self.scroll_frame.canvas.coords(self.scroll_frame.canvas_window)
             if not canvas_window_coords or len(canvas_window_coords) < 2:
                 return
             
@@ -1075,8 +1075,8 @@ class App(tk.Tk):
             frame_absolute_y = window_y + frame_y
             
             # 获取当前可视区域的范围
-            canvas_height = self.canvas.winfo_height()
-            view_top = self.canvas.canvasy(0)
+            canvas_height = self.scroll_frame.canvas.winfo_height()
+            view_top = self.scroll_frame.canvas.canvasy(0)
             view_bottom = view_top + canvas_height
             
             # 检查 frame 是否在可视区域内
@@ -1089,13 +1089,13 @@ class App(tk.Tk):
                 target_y = max(0, target_y)
                 
                 # 计算滚动比例
-                bbox = self.canvas.bbox("all")
+                bbox = self.scroll_frame.canvas.bbox("all")
                 if bbox:
                     total_height = bbox[3] - bbox[1]
                     if total_height > 0:
                         scroll_ratio = target_y / total_height
                         scroll_ratio = max(0, min(1, scroll_ratio))
-                        self.canvas.yview_moveto(scroll_ratio)
+                        self.scroll_frame.canvas.yview_moveto(scroll_ratio)
         
         self.after(300, scroll_to_new_frame)
 
