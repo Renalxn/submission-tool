@@ -588,18 +588,34 @@ class ScrollableFrame(ttk.Frame):
         # 修复 Linux 鼠标滚轮问题
         if platform.system() == "Linux":
             # Linux 使用 Button-4（向上）和 Button-5（向下）
-            self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-3, "units"))
-            self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(3, "units"))
-            # 让内部 frame 也能响应滚轮
-            self.scroll_frame.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-3, "units"))
-            self.scroll_frame.bind("<Button-5>", lambda e: self.canvas.yview_scroll(3, "units"))
+            def scroll_up(event):
+                self.canvas.yview_scroll(-3, "units")
+            def scroll_down(event):
+                self.canvas.yview_scroll(3, "units")
+            
+            # 递归绑定到所有子组件
+            def bind_scroll_recursive(widget):
+                widget.bind("<Button-4>", scroll_up)
+                widget.bind("<Button-5>", scroll_down)
+                for child in widget.winfo_children():
+                    bind_scroll_recursive(child)
+            
+            bind_scroll_recursive(self.scroll_frame)
+            self.canvas.bind("<Button-4>", scroll_up)
+            self.canvas.bind("<Button-5>", scroll_down)
         else:
             # Windows 和 macOS 使用 MouseWheel
             def _on_mousewheel(event):
                 self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            # 递归绑定到所有子组件
+            def bind_scroll_recursive(widget):
+                widget.bind("<MouseWheel>", _on_mousewheel)
+                for child in widget.winfo_children():
+                    bind_scroll_recursive(child)
+            
+            bind_scroll_recursive(self.scroll_frame)
             self.canvas.bind("<MouseWheel>", _on_mousewheel)
-            # 让内部 frame 也能响应滚轮
-            self.scroll_frame.bind("<MouseWheel>", _on_mousewheel)
     def scroll_widget_into_view(self, widget):
         self.canvas.update_idletasks()
         widget_y = widget.winfo_y()
@@ -616,7 +632,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.15")
+        self.title("投稿排版助手 v1.0.16")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -862,12 +878,42 @@ class App(tk.Tk):
         self.bind_all("<Down>", guarded(move_down), add="+")
         self.bind_all("<Left>", guarded(move_left), add="+")
         self.bind_all("<Right>", guarded(move_right), add="+")
+        
         def on_return(event=None):
+            """回车键处理：在输入框上时跳转到下一个控件，在按钮上时执行点击"""
             widget = self.focus_get()
+            
+            # 如果焦点在按钮上，执行点击
             if isinstance(widget, ttk.Button):
                 widget.invoke()
                 return "break"
+            
+            # 如果焦点在输入框上，跳转到下一个控件
+            if isinstance(widget, ttk.Entry):
+                # 获取所有可聚焦的控件（输入框和按钮）
+                all_widgets = []
+                
+                def collect_widgets(w):
+                    if isinstance(w, (ttk.Entry, ttk.Button)) and str(w.cget('state')) != 'disabled':
+                        all_widgets.append(w)
+                    for child in w.winfo_children():
+                        collect_widgets(child)
+                
+                collect_widgets(self)
+                
+                # 找到当前 widget 在列表中的位置
+                try:
+                    current_idx = all_widgets.index(widget)
+                    # 跳转到下一个 widget
+                    next_idx = (current_idx + 1) % len(all_widgets)
+                    all_widgets[next_idx].focus()
+                except (ValueError, IndexError):
+                    pass
+                
+                return "break"
+            
             return "break"
+        
         self.bind_all("<Return>", guarded(on_return), add="+")
         self.bind_all("<KP_Enter>", guarded(on_return), add="+")
 
@@ -1002,9 +1048,27 @@ class App(tk.Tk):
         self.bank_data.append(vars_dict)
         if init_data is None:
             self._focus_widget(entry_bank)
-        
+
         # 自动滚动到新添加的输入框，确保它在可视区域内
-        self.after(100, lambda: self.scroll_frame.scroll_widget_into_view(fr))
+        # 增加延迟确保组件完全渲染
+        def scroll_to_new_frame():
+            self.scroll_frame.update_idletasks()
+            self.canvas.update_idletasks()
+            # 获取 frame 在 canvas 中的实际位置
+            widget_y = fr.winfo_rooty() - self.scroll_frame.winfo_rooty()
+            widget_h = fr.winfo_height()
+            view_top = self.canvas.canvasy(0)
+            view_height = self.canvas.winfo_height()
+            view_bottom = view_top + view_height
+            
+            # 如果 widget 在可视区域外，滚动到它
+            if widget_y < view_top or widget_y + widget_h > view_bottom:
+                # 计算需要滚动的位置，让 widget 显示在中间
+                target_y = max(0, widget_y - view_height // 3)
+                total_height = max(self.scroll_frame.winfo_height(), 1)
+                self.canvas.yview_moveto(target_y / total_height)
+        
+        self.after(200, scroll_to_new_frame)
 
     def get_bank_list(self):
         res = []
@@ -1273,17 +1337,26 @@ class App(tk.Tk):
         self.cfg["contact"] = {k:v.get().strip() for k,(v,e) in self.contact_vars.items()}
         self.cfg["banks"] = self.get_bank_list()
         save_config(self.cfg)
+        
+        # 创建导出成功弹窗（动态尺寸）
         win = tk.Toplevel(self)
         win.title("导出成功")
         win.transient(self)
         win.resizable(False, False)
         win.grab_set()
-        win.geometry("320x120")
-        win.update()
+        
+        # 根据路径长度计算合适的弹窗尺寸
+        path_length = len(str(out_folder))
+        width = min(max(path_length * 8 + 100, 400), int(self.winfo_width() * 0.8))
+        height = min(180, int(self.winfo_height() * 0.7))
+        
+        # 居中显示
         sw2 = win.winfo_screenwidth()
         sh2 = win.winfo_screenheight()
-        win.geometry(f"320x120+{int((sw2-320)/2)}+{int((sh2-120)/2)}")
-        ttk.Label(win, text=f"文件已导出到：\n{out_folder}", wraplength=300).pack(pady=15)
+        win.geometry(f"{width}x{height}+{int((sw2-width)/2)}+{int((sh2-height)/2)}")
+        win.update()
+        
+        ttk.Label(win, text=f"文件已导出到：\n{out_folder}", wraplength=width - 40, justify="left").pack(pady=15, padx=20)
         def close_all(event=None):
             try:
                 win.grab_release()
