@@ -585,37 +585,8 @@ class ScrollableFrame(ttk.Frame):
         # 绑定 Canvas 大小变化事件，动态调整内部窗口宽度
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
         
-        # 修复 Linux 鼠标滚轮问题
-        if platform.system() == "Linux":
-            # Linux 使用 Button-4（向上）和 Button-5（向下）
-            def scroll_up(event):
-                self.canvas.yview_scroll(-3, "units")
-            def scroll_down(event):
-                self.canvas.yview_scroll(3, "units")
-            
-            # 递归绑定到所有子组件
-            def bind_scroll_recursive(widget):
-                widget.bind("<Button-4>", scroll_up)
-                widget.bind("<Button-5>", scroll_down)
-                for child in widget.winfo_children():
-                    bind_scroll_recursive(child)
-            
-            bind_scroll_recursive(self.scroll_frame)
-            self.canvas.bind("<Button-4>", scroll_up)
-            self.canvas.bind("<Button-5>", scroll_down)
-        else:
-            # Windows 和 macOS 使用 MouseWheel
-            def _on_mousewheel(event):
-                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-            
-            # 递归绑定到所有子组件
-            def bind_scroll_recursive(widget):
-                widget.bind("<MouseWheel>", _on_mousewheel)
-                for child in widget.winfo_children():
-                    bind_scroll_recursive(child)
-            
-            bind_scroll_recursive(self.scroll_frame)
-            self.canvas.bind("<MouseWheel>", _on_mousewheel)
+        # 注意：滚轮事件已移到 App 类的全局绑定中处理
+        # 这样可以确保在整个面板区域（包括输入框、空白处）都能响应滚轮
     def scroll_widget_into_view(self, widget):
         self.canvas.update_idletasks()
         widget_y = widget.winfo_y()
@@ -632,7 +603,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.16")
+        self.title("投稿排版助手 v1.0.17")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -916,6 +887,39 @@ class App(tk.Tk):
         
         self.bind_all("<Return>", guarded(on_return), add="+")
         self.bind_all("<KP_Enter>", guarded(on_return), add="+")
+        
+        # 全局鼠标滚轮绑定（解决滚轮范围受限问题）
+        # 在 App 类的全局层面绑定，而不是在单个组件上绑定
+        def global_mousewheel(event):
+            # 检查鼠标是否在 scroll_frame 区域内
+            try:
+                # 获取鼠标相对于 root 窗口的位置
+                widget = self.winfo_containing(event.x_root, event.y_root)
+                if widget:
+                    # 检查这个 widget 是否在 scroll_frame 内部
+                    parent = widget
+                    while parent:
+                        if parent == self.scroll_frame.scroll_frame:
+                            # 在 scroll_frame 内部，执行滚动
+                            if platform.system() == "Linux":
+                                if event.num == 4:
+                                    self.scroll_frame.canvas.yview_scroll(-3, "units")
+                                elif event.num == 5:
+                                    self.scroll_frame.canvas.yview_scroll(3, "units")
+                            else:
+                                self.scroll_frame.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                            return "break"
+                        parent = parent.master
+            except (AttributeError, tk.TclError):
+                pass
+            return None
+        
+        # 根据平台绑定全局滚轮事件
+        if platform.system() == "Linux":
+            self.bind_all("<Button-4>", global_mousewheel, add="+")
+            self.bind_all("<Button-5>", global_mousewheel, add="+")
+        else:
+            self.bind_all("<MouseWheel>", global_mousewheel, add="+")
 
     def select_file(self):
         init_dir = self.cfg.get("last_file_dir","")
@@ -1049,26 +1053,30 @@ class App(tk.Tk):
         if init_data is None:
             self._focus_widget(entry_bank)
 
-        # 自动滚动到新添加的输入框，确保它在可视区域内
-        # 增加延迟确保组件完全渲染
+        # 自动滚动到新添加的输入框
+        # 使用 Canvas 的 bbox 和 yview 方法，而不是 winfo_rooty
         def scroll_to_new_frame():
-            self.scroll_frame.update_idletasks()
-            self.canvas.update_idletasks()
-            # 获取 frame 在 canvas 中的实际位置
-            widget_y = fr.winfo_rooty() - self.scroll_frame.winfo_rooty()
-            widget_h = fr.winfo_height()
-            view_top = self.canvas.canvasy(0)
-            view_height = self.canvas.winfo_height()
-            view_bottom = view_top + view_height
+            # 更新所有待处理的几何计算
+            self.update_idletasks()
             
-            # 如果 widget 在可视区域外，滚动到它
-            if widget_y < view_top or widget_y + widget_h > view_bottom:
-                # 计算需要滚动的位置，让 widget 显示在中间
-                target_y = max(0, widget_y - view_height // 3)
-                total_height = max(self.scroll_frame.winfo_height(), 1)
-                self.canvas.yview_moveto(target_y / total_height)
+            # 获取整个滚动区域的高度
+            bbox = self.canvas.bbox("all")
+            if not bbox:
+                return
+            
+            total_height = bbox[3] - bbox[1]  # bbox = (x1, y1, x2, y2)
+            canvas_height = self.canvas.winfo_height()
+            
+            # 如果总高度小于 canvas 高度，不需要滚动
+            if total_height <= canvas_height:
+                return
+            
+            # 滚动到最底部，让新添加的 frame 可见
+            # yview_moveto(1.0) 会滚动到最底部
+            self.canvas.yview_moveto(1.0)
         
-        self.after(200, scroll_to_new_frame)
+        # 使用较长的延迟确保所有组件完全渲染
+        self.after(300, scroll_to_new_frame)
 
     def get_bank_list(self):
         res = []
