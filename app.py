@@ -17,6 +17,7 @@ import platform
 from cryptography.fernet import Fernet
 import threading
 import subprocess
+import stat
 
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
@@ -251,9 +252,14 @@ def ask_saveas_folder_name(parent, initial_name):
 
 
 def get_cipher():
+    """获取加密 cipher（修复密钥文件权限问题）"""
     if not KEY_FILE.exists():
         key = Fernet.generate_key()
         KEY_FILE.write_bytes(key)
+        # 设置文件权限为 0600（仅所有者可读写），防止其他用户读取密钥
+        # 仅在 Unix 系统上有效，Windows 会忽略此操作
+        if os.name != 'nt':
+            os.chmod(KEY_FILE, stat.S_IRUSR | stat.S_IWUSR)
     else:
         key = KEY_FILE.read_bytes()
     return Fernet(key)
