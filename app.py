@@ -603,7 +603,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.17")
+        self.title("投稿排版助手 v1.0.18")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1053,29 +1053,52 @@ class App(tk.Tk):
         if init_data is None:
             self._focus_widget(entry_bank)
 
-        # 自动滚动到新添加的输入框
-        # 使用 Canvas 的 bbox 和 yview 方法，而不是 winfo_rooty
+        # 自动滚动到新添加的输入框，确保它在可视区域内
         def scroll_to_new_frame():
-            # 更新所有待处理的几何计算
+            # 强制更新所有待处理的几何计算
             self.update_idletasks()
+            self.canvas.update_idletasks()
+            fr.update_idletasks()
             
-            # 获取整个滚动区域的高度
-            bbox = self.canvas.bbox("all")
-            if not bbox:
+            # 获取新增 frame 在 canvas 坐标系中的位置
+            # canvas.coords 返回 canvas_window 在 canvas 中的坐标
+            canvas_window_coords = self.canvas.coords(self.canvas_window)
+            if not canvas_window_coords or len(canvas_window_coords) < 2:
                 return
             
-            total_height = bbox[3] - bbox[1]  # bbox = (x1, y1, x2, y2)
+            # canvas_window 的起始位置（通常是 0,0）
+            window_x, window_y = canvas_window_coords[0], canvas_window_coords[1]
+            
+            # 获取新增 frame 相对于 scroll_frame 的位置
+            frame_y = fr.winfo_y()
+            frame_height = fr.winfo_height()
+            
+            # 计算 frame 在 canvas 坐标系中的绝对 Y 坐标
+            frame_absolute_y = window_y + frame_y
+            
+            # 获取当前可视区域的范围
             canvas_height = self.canvas.winfo_height()
+            view_top = self.canvas.canvasy(0)
+            view_bottom = view_top + canvas_height
             
-            # 如果总高度小于 canvas 高度，不需要滚动
-            if total_height <= canvas_height:
-                return
-            
-            # 滚动到最底部，让新添加的 frame 可见
-            # yview_moveto(1.0) 会滚动到最底部
-            self.canvas.yview_moveto(1.0)
+            # 检查 frame 是否在可视区域内
+            if frame_absolute_y < view_top or frame_absolute_y + frame_height > view_bottom:
+                # frame 不在可视区域内，需要滚动
+                # 计算目标滚动位置，让 frame 显示在可视区域中间偏下
+                target_y = frame_absolute_y - canvas_height // 3
+                
+                # 确保 target_y 不为负数
+                target_y = max(0, target_y)
+                
+                # 计算滚动比例
+                total_height = self.canvas.bbox("all")[3] - self.canvas.bbox("all")[1]
+                if total_height > 0:
+                    scroll_ratio = target_y / total_height
+                    # 限制在 0-1 范围内
+                    scroll_ratio = max(0, min(1, scroll_ratio))
+                    self.canvas.yview_moveto(scroll_ratio)
         
-        # 使用较长的延迟确保所有组件完全渲染
+        # 使用延迟确保所有组件完全渲染
         self.after(300, scroll_to_new_frame)
 
     def get_bank_list(self):
