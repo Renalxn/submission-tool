@@ -268,6 +268,7 @@ def get_cipher():
     return Fernet(key)
 
 def load_config():
+    """加载配置文件（修复异常处理问题）"""
     cipher = get_cipher()
     default_cfg = {
         "contact": {"姓名":"","微信":"","电话":"","地址":"","邮编":"","身份证号":"","邮箱":""},
@@ -284,7 +285,11 @@ def load_config():
             if "卡号" in b and "账号" not in b:
                 b["账号"] = b.pop("卡号")
         return cfg
-    except Exception:
+    except Exception as e:
+        # 配置文件损坏时记录日志，而不是静默失败
+        import logging
+        logging.warning(f"配置文件读取失败，使用默认配置: {e}")
+        # TODO: 可以通过回调通知 GUI 层弹窗提示用户
         return default_cfg
 
 def save_config(cfg):
