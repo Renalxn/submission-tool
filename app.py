@@ -603,7 +603,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.18")
+        self.title("投稿排版助手 v1.0.19")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1061,12 +1061,10 @@ class App(tk.Tk):
             fr.update_idletasks()
             
             # 获取新增 frame 在 canvas 坐标系中的位置
-            # canvas.coords 返回 canvas_window 在 canvas 中的坐标
             canvas_window_coords = self.canvas.coords(self.canvas_window)
             if not canvas_window_coords or len(canvas_window_coords) < 2:
                 return
             
-            # canvas_window 的起始位置（通常是 0,0）
             window_x, window_y = canvas_window_coords[0], canvas_window_coords[1]
             
             # 获取新增 frame 相对于 scroll_frame 的位置
@@ -1083,22 +1081,22 @@ class App(tk.Tk):
             
             # 检查 frame 是否在可视区域内
             if frame_absolute_y < view_top or frame_absolute_y + frame_height > view_bottom:
-                # frame 不在可视区域内，需要滚动
-                # 计算目标滚动位置，让 frame 显示在可视区域中间偏下
-                target_y = frame_absolute_y - canvas_height // 3
+                # frame 在可视区域下方，需要向上滚动页面（滚动条向下）
+                # 让 frame 显示在可视区域底部，留出一些边距
+                target_y = frame_absolute_y + frame_height - canvas_height + 50
                 
                 # 确保 target_y 不为负数
                 target_y = max(0, target_y)
                 
                 # 计算滚动比例
-                total_height = self.canvas.bbox("all")[3] - self.canvas.bbox("all")[1]
-                if total_height > 0:
-                    scroll_ratio = target_y / total_height
-                    # 限制在 0-1 范围内
-                    scroll_ratio = max(0, min(1, scroll_ratio))
-                    self.canvas.yview_moveto(scroll_ratio)
+                bbox = self.canvas.bbox("all")
+                if bbox:
+                    total_height = bbox[3] - bbox[1]
+                    if total_height > 0:
+                        scroll_ratio = target_y / total_height
+                        scroll_ratio = max(0, min(1, scroll_ratio))
+                        self.canvas.yview_moveto(scroll_ratio)
         
-        # 使用延迟确保所有组件完全渲染
         self.after(300, scroll_to_new_frame)
 
     def get_bank_list(self):
