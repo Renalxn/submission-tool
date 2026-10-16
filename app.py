@@ -528,9 +528,17 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.configure(yscrollcommand=scrollbar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # 修复 Linux 鼠标滚轮问题
+        if platform.system() == "Linux":
+            # Linux 使用 Button-4（向上）和 Button-5（向下）
+            self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-3, "units"))
+            self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(3, "units"))
+        else:
+            # Windows 和 macOS 使用 MouseWheel
+            def _on_mousewheel(event):
+                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            self.canvas.bind("<MouseWheel>", _on_mousewheel)
     def scroll_widget_into_view(self, widget):
         self.canvas.update_idletasks()
         widget_y = widget.winfo_y()
