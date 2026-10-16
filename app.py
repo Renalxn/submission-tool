@@ -588,22 +588,40 @@ class ScrollableFrame(ttk.Frame):
         # 注意：滚轮事件已移到 App 类的全局绑定中处理
         # 这样可以确保在整个面板区域（包括输入框、空白处）都能响应滚轮
     def scroll_widget_into_view(self, widget):
+        """将 widget 滚动到可视区域内。
+        
+        关键：winfo_y() 返回的是相对于直接父容器的偏移，
+        需要沿 master 链向上累加，得到相对于内层 scroll_frame 的坐标，
+        这才是 canvas 坐标系中的正确位置。
+        """
         self.canvas.update_idletasks()
-        widget_y = widget.winfo_y()
+
+        # 沿 master 链累加 y 偏移，得到 widget 在 canvas 坐标系中的 y
+        widget_y = 0
+        w = widget
+        while w is not self.scroll_frame:
+            widget_y += w.winfo_y()
+            w = w.master
+
         widget_h = widget.winfo_height()
+        canvas_h = self.canvas.winfo_height()
         view_top = self.canvas.canvasy(0)
-        view_bottom = view_top + self.canvas.winfo_height()
+        view_bottom = view_top + canvas_h
+
         if widget_y < view_top:
-            self.canvas.yview_moveto(widget_y / max(self.scroll_frame.winfo_height(),1))
+            # widget 在可视区域上方，向上滚动
+            total = max(self.scroll_frame.winfo_height(), 1)
+            self.canvas.yview_moveto(widget_y / total)
         elif widget_y + widget_h > view_bottom:
-            bottom = widget_y + widget_h
-            total = max(self.scroll_frame.winfo_height(),1)
-            self.canvas.yview_moveto(bottom / total)
+            # widget 在可视区域下方，向下滚动，让 widget 底部靠近可视区域底部
+            target_top = widget_y + widget_h - canvas_h + 20
+            total = max(self.scroll_frame.winfo_height(), 1)
+            self.canvas.yview_moveto(target_top / total)
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.20")
+        self.title("投稿排版助手 v1.0.21")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1057,47 +1075,36 @@ class App(tk.Tk):
         def scroll_to_new_frame():
             # 强制更新所有待处理的几何计算
             self.update_idletasks()
-            self.scroll_frame.canvas.update_idletasks()
-            fr.update_idletasks()
-            
-            # 获取新增 frame 在 canvas 坐标系中的位置
-            canvas_window_coords = self.scroll_frame.canvas.coords(self.scroll_frame.canvas_window)
-            if not canvas_window_coords or len(canvas_window_coords) < 2:
-                return
-            
-            window_x, window_y = canvas_window_coords[0], canvas_window_coords[1]
-            
-            # 获取新增 frame 相对于 scroll_frame 的位置
-            frame_y = fr.winfo_y()
+
+            # 沿 master 链累加 y 偏移，得到 fr 在 canvas 坐标系中的 y
+            frame_y = 0
+            w = fr
+            while w is not self.scroll_frame.scroll_frame:
+                frame_y += w.winfo_y()
+                w = w.master
+
             frame_height = fr.winfo_height()
-            
-            # 计算 frame 在 canvas 坐标系中的绝对 Y 坐标
-            frame_absolute_y = window_y + frame_y
-            
-            # 获取当前可视区域的范围
             canvas_height = self.scroll_frame.canvas.winfo_height()
+            total_height = max(self.scroll_frame.scroll_frame.winfo_height(), 1)
+
             view_top = self.scroll_frame.canvas.canvasy(0)
             view_bottom = view_top + canvas_height
-            
+
             # 检查 frame 是否在可视区域内
-            if frame_absolute_y < view_top or frame_absolute_y + frame_height > view_bottom:
-                # frame 在可视区域下方，需要向上滚动页面（滚动条向下）
-                # 让 frame 显示在可视区域底部，留出一些边距
-                target_y = frame_absolute_y + frame_height - canvas_height + 50
-                
-                # 确保 target_y 不为负数
-                target_y = max(0, target_y)
-                
-                # 计算滚动比例
-                bbox = self.scroll_frame.canvas.bbox("all")
-                if bbox:
-                    total_height = bbox[3] - bbox[1]
-                    if total_height > 0:
-                        scroll_ratio = target_y / total_height
-                        scroll_ratio = max(0, min(1, scroll_ratio))
-                        self.scroll_frame.canvas.yview_moveto(scroll_ratio)
-        
-        self.after(300, scroll_to_new_frame)
+            if frame_y + frame_height > view_bottom:
+                # frame 在可视区域下方，向下滚动
+                target_top = frame_y + frame_height - canvas_height + 20
+                target_top = max(0, target_top)
+                fraction = target_top / total_height
+                fraction = max(0, min(1, fraction))
+                self.scroll_frame.canvas.yview_moveto(fraction)
+            elif frame_y < view_top:
+                # frame 在可视区域上方，向上滚动
+                fraction = frame_y / total_height
+                fraction = max(0, min(1, fraction))
+                self.scroll_frame.canvas.yview_moveto(fraction)
+
+        self.after(100, scroll_to_new_frame)
 
     def get_bank_list(self):
         res = []
