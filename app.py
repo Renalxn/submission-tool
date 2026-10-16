@@ -561,6 +561,22 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("投稿排版助手 v1.0.15")
+        
+        # 设置 ttk 主题美化界面
+        style = ttk.Style(self)
+        # 尝试使用 clam 主题（更现代化），如果不可用则使用默认
+        available_themes = style.theme_names()
+        if 'clam' in available_themes:
+            style.theme_use('clam')
+        elif 'alt' in available_themes:
+            style.theme_use('alt')
+        
+        # 自定义样式
+        style.configure('TLabel', font=('微软雅黑', 10))
+        style.configure('TButton', font=('微软雅黑', 10), padding=6)
+        style.configure('TEntry', font=('微软雅黑', 10), padding=4)
+        style.configure('Header.TLabel', font=('微软雅黑', 11, 'bold'))
+        
         win_w = 780
         screen_h = self.winfo_screenheight()
         win_h = min(620, screen_h - 100)
