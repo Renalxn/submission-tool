@@ -16,6 +16,7 @@ import time
 import platform
 from cryptography.fernet import Fernet
 import threading
+import subprocess
 
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
@@ -916,13 +917,18 @@ class App(tk.Tk):
         return res
 
     def open_folder(self, folder_path):
+        """安全地打开文件夹（修复 Shell 注入漏洞）"""
         path = str(folder_path)
-        if platform.system() == "Windows":
-            os.startfile(path)
-        elif platform.system() == "Darwin":
-            os.system(f"open '{path}'")
-        else:
-            os.system(f"xdg-open '{path}'")
+        system = platform.system()
+        try:
+            if system == "Windows":
+                os.startfile(path)
+            elif system == "Darwin":
+                subprocess.run(["open", path], check=True)
+            else:
+                subprocess.run(["xdg-open", path], check=True)
+        except (OSError, subprocess.CalledProcessError) as e:
+            show_alert(self, "打开失败", f"无法打开文件夹：{e}")
 
     def do_export(self):
         for key, (var,entry) in self.contact_vars.items():

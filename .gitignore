@@ -14,3 +14,6 @@ __pycache__/
 # 日志与临时文件
 *.log
 tmp/
+
+# 备份文件
+*.backup
