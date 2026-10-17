@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.36
+投稿排版助手 v1.0.37
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -702,7 +702,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.36")
+        self.title("投稿排版助手 v1.0.37")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1240,6 +1240,15 @@ class App(tk.Tk):
         self._delete_btns.append(btn_del)
         self._del_to_fields[btn_del] = (entry_card, entry_lxh)
         def del_this():
+            # 问题修复：如果只剩一组银行信息，弹出确认弹窗
+            if len(self.bank_frames) == 1:
+                from tkinter import messagebox
+                if not messagebox.askyesno("确认删除", "是否删除所有银行信息？", parent=self):
+                    # 用户选择"否"，保留银行信息，聚焦到下一个空缺信息
+                    self.after(100, self._focus_next_empty_field)
+                    return
+            
+            # 执行删除操作
             del_row_idx = None
             for r, row in enumerate(self._grid_rows):
                 if row is row_a:
@@ -1260,10 +1269,9 @@ class App(tk.Tk):
             self.bank_frames.pop(idx)
             self.bank_data.pop(idx)
             fr.destroy()
-            if del_row_idx is not None and del_row_idx < len(self._grid_rows):
-                self._focus_widget(self._grid_rows[del_row_idx][0])
-            elif len(self._grid_rows) > 0:
-                self._focus_widget(self._grid_rows[-1][0])
+            
+            # 删除后，聚焦到下一个空缺信息
+            self.after(100, self._focus_next_empty_field)
         btn_del.config(command=del_this)
         self.bank_frames.append(fr)
         self.bank_data.append(vars_dict)
