@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.33
+投稿排版助手 v1.0.34
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.33")
+        self.title("投稿排版助手 v1.0.34")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -889,9 +889,9 @@ class App(tk.Tk):
             var, entry = self.contact_vars[key]
             if not var.get().strip():
                 self._focus_widget(entry); return
-        # 检查银行信息（只检查必填字段）
+        # 检查银行信息（包括联行号，如果为空则经停）
         for idx, bank in enumerate(self.bank_data):
-            for ck in ["银行名称","账号","开户支行"]:
+            for ck in ["银行名称","账号","开户支行","联行号"]:  # 包含联行号
                 var, entry = bank[ck]
                 if not var.get().strip():
                     self._focus_widget(entry); return
@@ -1068,9 +1068,9 @@ class App(tk.Tk):
                     if not var.get().strip():
                         empty_fields.append(entry)
                 
-                # 6. 银行信息（只检查必填字段：银行名称、账号、开户支行，不检查联行号）
+                # 6. 银行信息（包括联行号，如果为空则经停）
                 for bank_idx, bank in enumerate(self.bank_data):
-                    for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
+                    for ck in ["银行名称","账号","开户支行","联行号"]:  # 包含联行号
                         var, entry = bank[ck]
                         if not var.get().strip():
                             empty_fields.append(entry)
@@ -1345,11 +1345,11 @@ class App(tk.Tk):
         fp = self.file_path_var.get().strip()
         if not fp:
             all_errors.append("未选择要排版的文件")
-            missing_widgets.append(self.e_file)  # 改为聚焦到输入框，而非按钮
-            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红
+            missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
+            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红，不对按钮设置样式
         elif not Path(fp).is_file():
             all_errors.append("当前选择的排版文件不存在")
-            missing_widgets.append(self.e_file)  # 改为聚焦到输入框
+            missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
             self.e_file.configure(style="Error.TEntry")  # 只对输入框标红
         
         # 2. 检查标题

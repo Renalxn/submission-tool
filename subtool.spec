@@ -41,7 +41,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='投稿排版助手_v1.0.33',
+    name='投稿排版助手_v1.0.34',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -62,5 +62,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='投稿排版助手_v1.0.33',
+    name='投稿排版助手_v1.0.34',
 )
