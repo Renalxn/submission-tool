@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.29
+投稿排版助手 v1.0.30
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.29")
+        self.title("投稿排版助手 v1.0.30")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1002,36 +1002,62 @@ class App(tk.Tk):
         def on_return(event=None):
             """回车键处理：在输入框上时跳转到下一个控件，在按钮上时执行点击"""
             widget = self.focus_get()
-            
+
+            # 问题1修复：如果焦点在删除按钮上，弹窗确认
+            if widget in self._delete_btns:
+                # 弹出确认弹窗
+                from tkinter import messagebox
+                if messagebox.askyesno("确认删除", "是否删除此组银行信息？", parent=self):
+                    widget.invoke()
+                return "break"
+
             # 如果焦点在按钮上，执行点击
             if isinstance(widget, ttk.Button):
                 widget.invoke()
                 return "break"
-            
+
             # 如果焦点在输入框上，跳转到下一个控件
             if isinstance(widget, ttk.Entry):
-                # 获取所有可聚焦的控件（输入框和按钮）
+                # 问题2修复：优先聚焦未填写的输入框
                 all_widgets = []
-                
+
                 def collect_widgets(w):
                     if isinstance(w, (ttk.Entry, ttk.Button)) and str(w.cget('state')) != 'disabled':
                         all_widgets.append(w)
                     for child in w.winfo_children():
                         collect_widgets(child)
-                
+
                 collect_widgets(self)
-                
-                # 找到当前 widget 在列表中的位置
-                try:
-                    current_idx = all_widgets.index(widget)
-                    # 跳转到下一个 widget
-                    next_idx = (current_idx + 1) % len(all_widgets)
-                    all_widgets[next_idx].focus()
-                except (ValueError, IndexError):
-                    pass
-                
+
+                # 收集所有未填写的输入框（排除文件路径和保存路径，因为它们有浏览按钮）
+                empty_entries = []
+                for w in all_widgets:
+                    if isinstance(w, ttk.Entry):
+                        var = w.cget('textvariable')
+                        if var:
+                            # 获取变量值
+                            try:
+                                value = self.nametowidget(var).get() if isinstance(var, str) else var.get()
+                                if not value.strip():
+                                    empty_entries.append(w)
+                            except:
+                                pass
+
+                # 如果有未填写的输入框，跳转到下一个未填写的
+                if empty_entries:
+                    try:
+                        current_idx = empty_entries.index(widget)
+                        next_idx = (current_idx + 1) % len(empty_entries)
+                        empty_entries[next_idx].focus()
+                    except ValueError:
+                        # 当前 widget 不在 empty_entries 中，跳转到第一个未填写的
+                        empty_entries[0].focus()
+                else:
+                    # 所有输入框都已填写，跳转到导出按钮
+                    self.export_btn.focus()
+
                 return "break"
-            
+
             return "break"
         
         self.bind_all("<Return>", guarded(on_return), add="+")
