@@ -1,8 +1,8 @@
 # 投稿排版工具 - 项目状态文档
 
-> 最后更新：2026-10-17  
-> 当前版本：v1.0.21  
-> 项目路径：`~/projects/submission-tool/`  
+> 最后更新：2026-10-17
+> 当前版本：v1.0.39
+> 项目路径：`~/projects/submission-tool/`
 > GitHub：https://github.com/Renalxn/submission-tool（私有仓库）
 
 ---
@@ -78,13 +78,15 @@
 ## 下一步计划
 
 ### 优先级 1：打包为本地可执行文件
-- [ ] 在 Windows 上测试 PyInstaller 打包
-- [ ] 在 macOS 上测试 PyInstaller 打包
-- [ ] 在 Linux 上测试 PyInstaller 打包
-- [ ] 编写打包说明文档（已完成：docs/build.md）
+- [x] 在 Windows 上测试 PyInstaller 打包（已完成 ✅，v1.0.39）
+- [ ] 在 macOS 上测试 PyInstaller 打包（需要在 macOS 环境中执行）
+- [ ] 在 Linux 上测试 PyInstaller 打包（需要在 Linux 环境中执行）
+- [x] 编写打包说明文档（已完成：docs/build.md）
+- [x] 创建 macOS 专用 spec 文件（已完成：subtool_macos.spec）
+- [x] 创建 Linux 专用 spec 文件（已完成：subtool_linux.spec）
 
 ### 优先级 2：macOS 适配
-- [ ] 制作 .app 包
+- [ ] 制作 .app 包（需要在 macOS 环境中打包）
 - [ ] 适配 macOS 体验（菜单栏、快捷键）
 - [ ] 应用签名和公证（Gatekeeper）
 

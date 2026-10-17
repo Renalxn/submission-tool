@@ -8,11 +8,12 @@
 2. 安装依赖：
    ```bash
    pip install -r requirements.txt
+   pip install pyinstaller
    ```
 
 ## 打包步骤
 
-### Windows
+### Windows（已完成 ✅）
 
 1. 打开 PowerShell 或命令提示符
 2. 进入项目目录：
@@ -25,26 +26,12 @@
    ```
 4. 打包完成后，可执行文件位于：
    ```
-   dist/投稿排版助手/投稿排版助手.exe
+   dist/投稿排版助手_v1.0.39/投稿排版助手_v1.0.39.exe
    ```
 
-### macOS
+### macOS（待办 🔄）
 
-1. 打开终端
-2. 进入项目目录：
-   ```bash
-   cd /path/to/submission-tool
-   ```
-3. 运行打包命令：
-   ```bash
-   pyinstaller subtool.spec
-   ```
-4. 打包完成后，可执行文件位于：
-   ```
-   dist/投稿排版助手/投稿排版助手
-   ```
-
-### Linux
+**注意：** 需要在 macOS 系统中打包，不能在 Windows 或 WSL2 中打包。
 
 1. 打开终端
 2. 进入项目目录：
@@ -53,11 +40,34 @@
    ```
 3. 运行打包命令：
    ```bash
-   pyinstaller subtool.spec
+   pyinstaller subtool_macos.spec
+   ```
+4. 打包完成后，.app 包位于：
+   ```
+   dist/投稿排版助手_v1.0.39.app
+   ```
+5. 双击 .app 包即可运行
+
+### Linux（可以做 ⏸️）
+
+**注意：** 需要在真正的 Linux 环境中打包，不能在 WSL2 中打包（WSL2 无法打包 GUI 应用）。
+
+1. 打开终端
+2. 进入项目目录：
+   ```bash
+   cd /path/to/submission-tool
+   ```
+3. 运行打包命令：
+   ```bash
+   pyinstaller subtool_linux.spec
    ```
 4. 打包完成后，可执行文件位于：
    ```
-   dist/投稿排版助手/投稿排版助手
+   dist/投稿排版助手_v1.0.39/投稿排版助手_v1.0.39
+   ```
+5. 运行可执行文件：
+   ```bash
+   ./dist/投稿排版助手_v1.0.39/投稿排版助手_v1.0.39
    ```
 
 ## 注意事项
