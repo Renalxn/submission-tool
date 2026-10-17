@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.30
+投稿排版助手 v1.0.31
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.30")
+        self.title("投稿排版助手 v1.0.31")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1018,40 +1018,48 @@ class App(tk.Tk):
 
             # 如果焦点在输入框上，跳转到下一个控件
             if isinstance(widget, ttk.Entry):
-                # 问题2修复：优先聚焦未填写的输入框
-                all_widgets = []
-
-                def collect_widgets(w):
-                    if isinstance(w, (ttk.Entry, ttk.Button)) and str(w.cget('state')) != 'disabled':
-                        all_widgets.append(w)
-                    for child in w.winfo_children():
-                        collect_widgets(child)
-
-                collect_widgets(self)
-
-                # 收集所有未填写的输入框（排除文件路径和保存路径，因为它们有浏览按钮）
-                empty_entries = []
-                for w in all_widgets:
-                    if isinstance(w, ttk.Entry):
-                        var = w.cget('textvariable')
-                        if var:
-                            # 获取变量值
-                            try:
-                                value = self.nametowidget(var).get() if isinstance(var, str) else var.get()
-                                if not value.strip():
-                                    empty_entries.append(w)
-                            except:
-                                pass
-
-                # 如果有未填写的输入框，跳转到下一个未填写的
-                if empty_entries:
+                # 问题2修复：使用与 do_export 一致的固定字段列表
+                # 按顺序收集所有未填写的字段，聚焦到对应的输入框或浏览按钮
+                empty_fields = []
+                
+                # 1. 文件路径（聚焦到浏览按钮）
+                if not self.file_path_var.get().strip():
+                    empty_fields.append(self.btn_browse1)
+                
+                # 2. 标题
+                if not self.title_var.get().strip():
+                    empty_fields.append(self.title_entry)
+                
+                # 3. 作者
+                if not self.author_var.get().strip():
+                    empty_fields.append(self.author_entry)
+                
+                # 4. 保存路径（聚焦到浏览文件夹按钮）
+                if not self.save_dir_var.get().strip():
+                    empty_fields.append(self.btn_browse2)
+                
+                # 5. 联系信息
+                for key in ["姓名","微信","电话","地址","邮编","身份证号","邮箱"]:
+                    var, entry = self.contact_vars[key]
+                    if not var.get().strip():
+                        empty_fields.append(entry)
+                
+                # 6. 银行信息
+                for bank_idx, bank in enumerate(self.bank_data):
+                    for ck in ["银行名称","账号","开户支行","联行号"]:
+                        var, entry = bank[ck]
+                        if not var.get().strip():
+                            empty_fields.append(entry)
+                
+                if empty_fields:
+                    # 找到当前 widget 之后的下一个空字段
                     try:
-                        current_idx = empty_entries.index(widget)
-                        next_idx = (current_idx + 1) % len(empty_entries)
-                        empty_entries[next_idx].focus()
+                        current_idx = empty_fields.index(widget)
+                        next_idx = (current_idx + 1) % len(empty_fields)
+                        empty_fields[next_idx].focus()
                     except ValueError:
-                        # 当前 widget 不在 empty_entries 中，跳转到第一个未填写的
-                        empty_entries[0].focus()
+                        # 当前 widget 不在列表中（可能刚被填写完），跳到第一个
+                        empty_fields[0].focus()
                 else:
                     # 所有输入框都已填写，跳转到导出按钮
                     self.export_btn.focus()
@@ -1309,12 +1317,14 @@ class App(tk.Tk):
         fp = self.file_path_var.get().strip()
         if not fp:
             all_errors.append("未选择要排版的文件")
-            missing_widgets.append(self.e_file)
+            missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
+            self.e_file.configure(style="Error.TEntry")  # 输入框标红
             # 绑定选择文件事件，选择后恢复默认样式
             self.btn_browse1.configure(command=lambda: (self.select_file(), self.e_file.configure(style="TEntry")))
         elif not Path(fp).is_file():
             all_errors.append("当前选择的排版文件不存在")
-            missing_widgets.append(self.e_file)
+            missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
+            self.e_file.configure(style="Error.TEntry")  # 输入框标红
         
         # 2. 检查标题
         title = self.title_var.get().strip()
@@ -1340,7 +1350,8 @@ class App(tk.Tk):
         save_root = self.save_dir_var.get().strip()
         if not save_root:
             all_errors.append("保存文件夹为空")
-            missing_widgets.append(self.e_save)
+            missing_widgets.append(self.btn_browse2)  # 聚焦到浏览文件夹按钮
+            self.e_save.configure(style="Error.TEntry")  # 输入框标红
             self.btn_browse2.configure(command=lambda: (self.select_save_folder(), self.e_save.configure(style="TEntry")))
         
         # 5. 检查联系信息
