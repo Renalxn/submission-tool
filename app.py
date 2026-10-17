@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.32
+投稿排版助手 v1.0.33
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.32")
+        self.title("投稿排版助手 v1.0.33")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -873,6 +873,30 @@ class App(tk.Tk):
         """保存文件夹变量变化时，如果不为空则恢复默认样式"""
         if self.save_dir_var.get().strip():
             self.e_save.configure(style="TEntry")
+
+    def _focus_next_empty_field(self):
+        """找到下一个空缺字段并聚焦"""
+        # 按顺序检查所有字段
+        if not self.file_path_var.get().strip():
+            self._focus_widget(self.e_file); return
+        if not self.title_var.get().strip():
+            self._focus_widget(self.title_entry); return
+        if not self.author_var.get().strip():
+            self._focus_widget(self.author_entry); return
+        if not self.save_dir_var.get().strip():
+            self._focus_widget(self.btn_browse2); return
+        for key in ["姓名","微信","电话","地址","邮编","身份证号","邮箱"]:
+            var, entry = self.contact_vars[key]
+            if not var.get().strip():
+                self._focus_widget(entry); return
+        # 检查银行信息（只检查必填字段）
+        for idx, bank in enumerate(self.bank_data):
+            for ck in ["银行名称","账号","开户支行"]:
+                var, entry = bank[ck]
+                if not var.get().strip():
+                    self._focus_widget(entry); return
+        # 所有必填字段都已填写，聚焦到导出按钮
+        self.export_btn.focus()
 
     def _find_widget_position(self, widget):
         for r, row in enumerate(self._grid_rows):
@@ -1122,6 +1146,9 @@ class App(tk.Tk):
         display_title, _ = normalize_title_for_export(title)
         self.title_var.set(display_title)
         self.author_var.set(author)
+        
+        # 问题2修复：选择文件后，聚焦到下一个空缺字段
+        self.after(100, self._focus_next_empty_field)
 
     def parse_file(self, filepath):
         """解析文件，提取标题和作者（修复不支持的文件类型处理）"""
@@ -1309,21 +1336,20 @@ class App(tk.Tk):
         missing_widgets = []
         
         # 定义恢复背景色的回调函数（用户输入时调用）
-        def restore_bg(event, entry_widget):
-            """用户输入时恢复默认背景色"""
-            entry_widget.configure(style="TEntry")  # 恢复默认 TEntry 样式
+        def restore_bg(event, entry_widget, var):
+            """用户输入时，仅当输入框有值时才恢复默认背景色"""
+            if var.get().strip():
+                entry_widget.configure(style="TEntry")
         
         # 1. 检查文件
         fp = self.file_path_var.get().strip()
         if not fp:
             all_errors.append("未选择要排版的文件")
-            missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
-            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红，不对按钮设置样式
-            # 绑定选择文件事件，选择后恢复默认样式（只恢复输入框，按钮本来就没改）
-            self.btn_browse1.configure(command=lambda: (self.select_file(), self.e_file.configure(style="TEntry")))
+            missing_widgets.append(self.e_file)  # 改为聚焦到输入框，而非按钮
+            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红
         elif not Path(fp).is_file():
             all_errors.append("当前选择的排版文件不存在")
-            missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
+            missing_widgets.append(self.e_file)  # 改为聚焦到输入框
             self.e_file.configure(style="Error.TEntry")  # 只对输入框标红
         
         # 2. 检查标题
@@ -1331,20 +1357,20 @@ class App(tk.Tk):
         if not title:
             all_errors.append("标题为空")
             missing_widgets.append(self.title_entry)
-            self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry: restore_bg(e, w), add="+")
+            self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry, v=self.title_var: restore_bg(e, w, v), add="+")
         else:
             title_error = validate_title_book_marks(title)
             if title_error:
                 all_errors.append(f"标题格式有误：{title_error}")
                 missing_widgets.append(self.title_entry)
-                self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry: restore_bg(e, w), add="+")
-        
+                self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry, v=self.title_var: restore_bg(e, w, v), add="+")
+
         # 3. 检查作者
         author = self.author_var.get().strip()
         if not author:
             all_errors.append("作者为空")
             missing_widgets.append(self.author_entry)
-            self.author_entry.bind("<KeyRelease>", lambda e, w=self.author_entry: restore_bg(e, w), add="+")
+            self.author_entry.bind("<KeyRelease>", lambda e, w=self.author_entry, v=self.author_var: restore_bg(e, w, v), add="+")
         
         # 4. 检查保存文件夹
         save_root = self.save_dir_var.get().strip()
@@ -1362,8 +1388,8 @@ class App(tk.Tk):
             if not val:
                 all_errors.append(f"联系信息：{key} 为空")
                 missing_widgets.append(entry)
-                entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
-        
+                entry.bind("<KeyRelease>", lambda e, w=entry, v=var: restore_bg(e, w, v), add="+")
+
         # 6. 检查银行信息
         bank_list = self.get_bank_list()
         for bank_idx, bank in enumerate(bank_list):
@@ -1373,7 +1399,7 @@ class App(tk.Tk):
                 if not val:
                     all_errors.append(f"第{bank_idx+1}组银行信息：{ck} 为空")
                     missing_widgets.append(entry)
-                    entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
+                    entry.bind("<KeyRelease>", lambda e, w=entry, v=var: restore_bg(e, w, v), add="+")
         
         # 统一弹窗提示所有问题
         if all_errors:
@@ -1389,8 +1415,12 @@ class App(tk.Tk):
             # 滚动到第一个漏填位置并聚焦
             if missing_widgets:
                 first_widget = missing_widgets[0]
-                self.after(100, lambda: self.scroll_frame.scroll_widget_into_view(first_widget))
-                self.after(200, lambda: first_widget.focus_set())
+                def _scroll_and_focus():
+                    self.scroll_frame.canvas.yview_moveto(0)  # 先回到顶部
+                    self.update_idletasks()
+                    self.scroll_frame.scroll_widget_into_view(first_widget)  # 再微调
+                    first_widget.focus_set()
+                self.after(100, _scroll_and_focus)
             return
 
         display_title, file_title = normalize_title_for_export(title)
