@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.38
+投稿排版助手 v1.0.39
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -702,7 +702,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.38")
+        self.title("投稿排版助手 v1.0.39")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -891,13 +891,20 @@ class App(tk.Tk):
             if not var.get().strip():
                 self._focus_widget(entry); return
         # 检查银行信息（只检查必填字段：银行名称、账号、开户支行）
-        # 联行号是选填项，不参与焦点导航
+        # 联行号是选填项，不参与必填检查
         for idx, bank in enumerate(self.bank_data):
             for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
                 var, entry = bank[ck]
                 if not var.get().strip():
                     self._focus_widget(entry); return
-        # 所有必填字段都已填写，聚焦到导出按钮
+        
+        # 所有必填字段都已填写，检查是否有空的联行号（选填项，但允许用户填写）
+        for idx, bank in enumerate(self.bank_data):
+            var, entry = bank["联行号"]
+            if not var.get().strip():
+                self._focus_widget(entry); return  # 聚焦到空的联行号，让用户选择是否填写
+        
+        # 所有必填字段和联行号都已填写，聚焦到导出按钮
         self.export_btn.focus()
 
     def _find_widget_position(self, widget):
@@ -1075,12 +1082,18 @@ class App(tk.Tk):
                         empty_fields.append(entry)
                 
                 # 6. 银行信息（只检查必填字段：银行名称、账号、开户支行）
-                # 联行号是选填项，不参与回车键导航
                 for bank_idx, bank in enumerate(self.bank_data):
                     for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
                         var, entry = bank[ck]
                         if not var.get().strip():
                             empty_fields.append(entry)
+                
+                # 7. 联行号（选填项，但允许用户填写）
+                # 如果所有必填项都填好了，但联行号为空，也加入导航列表
+                for bank_idx, bank in enumerate(self.bank_data):
+                    var, entry = bank["联行号"]
+                    if not var.get().strip():
+                        empty_fields.append(entry)
                 
                 if empty_fields:
                     # 找到当前 widget 之后的下一个空字段
