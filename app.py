@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.23
+投稿排版助手 v1.0.24
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -18,6 +18,10 @@ from cryptography.fernet import Fernet
 import threading
 import subprocess
 import stat
+import warnings
+
+# 问题2修复：过滤 libpng 的 iCCP 警告
+warnings.filterwarnings("ignore", category=UserWarning)
 
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
@@ -657,7 +661,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.23")
+        self.title("投稿排版助手 v1.0.24")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1220,43 +1224,38 @@ class App(tk.Tk):
         error_text = ""
         missing_widgets = []  # 收集漏填的 widget
         contact = {}
+        
+        # 定义恢复背景色的回调函数（用户输入时调用）
+        def restore_bg(event, entry_widget):
+            entry_widget.config(background="white")
+        
         for key, (var,entry) in self.contact_vars.items():
             val = var.get().strip()
             contact[key] = val
             if not val:
-                entry.config(background="#ffcccc")
+                entry.config(background="#ff6666")  # 红色提示
                 error_text += f"联系信息：{key} 为空\n"
                 missing_widgets.append(entry)
+                # 绑定输入事件，用户输入时恢复白色
+                entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
         bank_list = self.get_bank_list()
         for bank_idx, bank in enumerate(bank_list):
             for ck in ["银行名称","账号","开户支行"]:
                 val = bank[ck]
                 var,entry = self.bank_data[bank_idx][ck]
                 if not val:
-                    entry.config(background="#ffcccc")
+                    entry.config(background="#ff6666")  # 红色提示
                     error_text += f"第{bank_idx+1}组银行信息：{ck} 为空\n"
                     missing_widgets.append(entry)
+                    # 绑定输入事件，用户输入时恢复白色
+                    entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
         if error_text:
             show_alert(self, "必填项缺失", error_text, width=620, height=300)
-            # 问题2修复：关闭弹窗后，滚动到第一个漏填位置并闪烁提示
+            # 问题1修复：关闭弹窗后，滚动到第一个漏填位置并聚焦
             if missing_widgets:
                 first_widget = missing_widgets[0]
                 self.after(100, lambda: self.scroll_frame.scroll_widget_into_view(first_widget))
                 self.after(200, lambda: first_widget.focus_set())
-                # 闪烁效果：改变背景色 3 次
-                def flash_widgets(widgets, count=3):
-                    if count <= 0:
-                        # 恢复为白色
-                        for w in widgets:
-                            w.config(background="white")
-                        return
-                    # 变为粉色
-                    for w in widgets:
-                        w.config(background="#ffcccc")
-                    # 0.3秒后恢复白色，再闪烁
-                    self.after(300, lambda: [w.config(background="white") for w in widgets])
-                    self.after(600, lambda: flash_widgets(widgets, count - 1))
-                self.after(800, lambda: flash_widgets(missing_widgets))
             return
 
         sub_folder_name = f"《{file_title}》投稿"
