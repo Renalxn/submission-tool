@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.37
+投稿排版助手 v1.0.38
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -702,7 +702,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.37")
+        self.title("投稿排版助手 v1.0.38")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -890,9 +890,10 @@ class App(tk.Tk):
             var, entry = self.contact_vars[key]
             if not var.get().strip():
                 self._focus_widget(entry); return
-        # 检查银行信息（包括联行号，如果为空则经停）
+        # 检查银行信息（只检查必填字段：银行名称、账号、开户支行）
+        # 联行号是选填项，不参与焦点导航
         for idx, bank in enumerate(self.bank_data):
-            for ck in ["银行名称","账号","开户支行","联行号"]:  # 包含联行号
+            for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
                 var, entry = bank[ck]
                 if not var.get().strip():
                     self._focus_widget(entry); return
@@ -1073,9 +1074,10 @@ class App(tk.Tk):
                     if not var.get().strip():
                         empty_fields.append(entry)
                 
-                # 6. 银行信息（包括联行号，如果为空则经停）
+                # 6. 银行信息（只检查必填字段：银行名称、账号、开户支行）
+                # 联行号是选填项，不参与回车键导航
                 for bank_idx, bank in enumerate(self.bank_data):
-                    for ck in ["银行名称","账号","开户支行","联行号"]:  # 包含联行号
+                    for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
                         var, entry = bank[ck]
                         if not var.get().strip():
                             empty_fields.append(entry)
