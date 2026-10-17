@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.22
+投稿排版助手 v1.0.23
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -221,6 +221,26 @@ def ask_export_conflict(parent, out_folder):
     btn_saveas.grid(row=0, column=1, sticky="e", padx=8)
     btn_cancel.grid(row=0, column=2, sticky="e", padx=(8, 0))
 
+    # 问题3修复：方向键导航按钮
+    buttons = [btn_overwrite, btn_saveas, btn_cancel]
+    def navigate_button(event):
+        current = win.focus_get()
+        if current in buttons:
+            idx = buttons.index(current)
+            if event.keysym in ('Left', 'Up'):
+                new_idx = (idx - 1) % len(buttons)
+                buttons[new_idx].focus_set()
+                return "break"
+            elif event.keysym in ('Right', 'Down'):
+                new_idx = (idx + 1) % len(buttons)
+                buttons[new_idx].focus_set()
+                return "break"
+        return None
+    win.bind("<Left>", navigate_button)
+    win.bind("<Right>", navigate_button)
+    win.bind("<Up>", navigate_button)
+    win.bind("<Down>", navigate_button)
+
     win.bind("<Alt-KeyPress-o>", lambda e: choose("overwrite", e))
     win.bind("<Alt-KeyPress-s>", lambda e: choose("saveas", e))
     win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
@@ -282,6 +302,22 @@ def ask_saveas_folder_name(parent, initial_name):
     btn_cancel = ttk.Button(button_frame, text="取消 [C]", command=lambda: choose("cancel"))
     btn_cancel.pack(side="right")
     btn_ok.pack(side="right", padx=(8, 0))
+
+    # 问题3修复：方向键导航按钮
+    buttons = [btn_ok, btn_cancel]
+    def navigate_button(event):
+        current = win.focus_get()
+        if current in buttons:
+            idx = buttons.index(current)
+            if event.keysym in ('Left', 'Up', 'Right', 'Down'):
+                new_idx = (idx + 1) % len(buttons)
+                buttons[new_idx].focus_set()
+                return "break"
+        return None
+    win.bind("<Left>", navigate_button)
+    win.bind("<Right>", navigate_button)
+    win.bind("<Up>", navigate_button)
+    win.bind("<Down>", navigate_button)
 
     win.bind("<Alt-KeyPress-o>", lambda e: choose("ok", e))
     win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
@@ -621,7 +657,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.22")
+        self.title("投稿排版助手 v1.0.23")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -744,7 +780,7 @@ class App(tk.Tk):
         
         # 问题1修复：窗口启动时滚动到顶部，确保顶部提示文字可见
         self.after(100, lambda: self.scroll_frame.canvas.yview_moveto(0))
-        self.after(200, lambda: self._focus_widget(btn_browse1))
+        self.after(200, lambda: self._focus_widget(self.btn_browse1))
         
         # 问题4修复：绑定全局焦点变化事件，让页面跟随光标滚动
         self.bind_all("<FocusIn>", self._on_focus_in, add="+")
@@ -1182,6 +1218,7 @@ class App(tk.Tk):
             show_alert(self, "缺失", "标题、作者、保存文件夹不能为空")
             return
         error_text = ""
+        missing_widgets = []  # 收集漏填的 widget
         contact = {}
         for key, (var,entry) in self.contact_vars.items():
             val = var.get().strip()
@@ -1189,6 +1226,7 @@ class App(tk.Tk):
             if not val:
                 entry.config(background="#ffcccc")
                 error_text += f"联系信息：{key} 为空\n"
+                missing_widgets.append(entry)
         bank_list = self.get_bank_list()
         for bank_idx, bank in enumerate(bank_list):
             for ck in ["银行名称","账号","开户支行"]:
@@ -1197,8 +1235,28 @@ class App(tk.Tk):
                 if not val:
                     entry.config(background="#ffcccc")
                     error_text += f"第{bank_idx+1}组银行信息：{ck} 为空\n"
+                    missing_widgets.append(entry)
         if error_text:
             show_alert(self, "必填项缺失", error_text, width=620, height=300)
+            # 问题2修复：关闭弹窗后，滚动到第一个漏填位置并闪烁提示
+            if missing_widgets:
+                first_widget = missing_widgets[0]
+                self.after(100, lambda: self.scroll_frame.scroll_widget_into_view(first_widget))
+                self.after(200, lambda: first_widget.focus_set())
+                # 闪烁效果：改变背景色 3 次
+                def flash_widgets(widgets, count=3):
+                    if count <= 0:
+                        # 恢复为白色
+                        for w in widgets:
+                            w.config(background="white")
+                        return
+                    # 变为粉色
+                    for w in widgets:
+                        w.config(background="#ffcccc")
+                    # 0.3秒后恢复白色，再闪烁
+                    self.after(300, lambda: [w.config(background="white") for w in widgets])
+                    self.after(600, lambda: flash_widgets(widgets, count - 1))
+                self.after(800, lambda: flash_widgets(missing_widgets))
             return
 
         sub_folder_name = f"《{file_title}》投稿"
