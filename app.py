@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.35
+投稿排版助手 v1.0.36
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -702,7 +702,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.35")
+        self.title("投稿排版助手 v1.0.36")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1183,6 +1183,8 @@ class App(tk.Tk):
         if folder:
             self.save_dir_var.set(folder)
             self.cfg["last_save_dir"] = folder
+            # 选择文件夹后，聚焦到下一个空缺字段
+            self.after(100, self._focus_next_empty_field)
 
     def add_bank_group(self, init_data=None):
         if len(self.bank_frames)>=4:
@@ -1338,7 +1340,8 @@ class App(tk.Tk):
         
         # 收集所有问题
         all_errors = []
-        missing_widgets = []
+        missing_widgets = []      # 用于聚焦（可包含按钮）
+        error_style_widgets = []  # 用于设置 Error.TEntry 样式（仅 Entry）
         
         # 定义恢复背景色的回调函数（用户输入时调用）
         def restore_bg(event, entry_widget, var):
@@ -1351,23 +1354,25 @@ class App(tk.Tk):
         if not fp:
             all_errors.append("未选择要排版的文件")
             missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
-            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红，不对按钮设置样式
+            error_style_widgets.append(self.e_file)   # 只对输入框标红
         elif not Path(fp).is_file():
             all_errors.append("当前选择的排版文件不存在")
             missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
-            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红
+            error_style_widgets.append(self.e_file)   # 只对输入框标红
         
         # 2. 检查标题
         title = self.title_var.get().strip()
         if not title:
             all_errors.append("标题为空")
             missing_widgets.append(self.title_entry)
+            error_style_widgets.append(self.title_entry)
             self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry, v=self.title_var: restore_bg(e, w, v), add="+")
         else:
             title_error = validate_title_book_marks(title)
             if title_error:
                 all_errors.append(f"标题格式有误：{title_error}")
                 missing_widgets.append(self.title_entry)
+                error_style_widgets.append(self.title_entry)
                 self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry, v=self.title_var: restore_bg(e, w, v), add="+")
 
         # 3. 检查作者
@@ -1375,6 +1380,7 @@ class App(tk.Tk):
         if not author:
             all_errors.append("作者为空")
             missing_widgets.append(self.author_entry)
+            error_style_widgets.append(self.author_entry)
             self.author_entry.bind("<KeyRelease>", lambda e, w=self.author_entry, v=self.author_var: restore_bg(e, w, v), add="+")
         
         # 4. 检查保存文件夹
@@ -1382,8 +1388,7 @@ class App(tk.Tk):
         if not save_root:
             all_errors.append("保存文件夹为空")
             missing_widgets.append(self.btn_browse2)  # 聚焦到浏览文件夹按钮
-            self.e_save.configure(style="Error.TEntry")  # 输入框标红
-            self.btn_browse2.configure(command=lambda: (self.select_save_folder(), self.e_save.configure(style="TEntry")))
+            error_style_widgets.append(self.e_save)   # 输入框标红
         
         # 5. 检查联系信息
         contact = {}
@@ -1393,6 +1398,7 @@ class App(tk.Tk):
             if not val:
                 all_errors.append(f"联系信息：{key} 为空")
                 missing_widgets.append(entry)
+                error_style_widgets.append(entry)
                 entry.bind("<KeyRelease>", lambda e, w=entry, v=var: restore_bg(e, w, v), add="+")
 
         # 6. 检查银行信息
@@ -1404,6 +1410,7 @@ class App(tk.Tk):
                 if not val:
                     all_errors.append(f"第{bank_idx+1}组银行信息：{ck} 为空")
                     missing_widgets.append(entry)
+                    error_style_widgets.append(entry)
                     entry.bind("<KeyRelease>", lambda e, w=entry, v=var: restore_bg(e, w, v), add="+")
         
         # 统一弹窗提示所有问题
@@ -1412,10 +1419,10 @@ class App(tk.Tk):
             # 根据错误数量动态计算弹窗高度（每行约 25 像素，加上边距 120）
             dynamic_height = min(max(len(all_errors) * 25 + 120, 180), 500)
             show_alert(self, "信息不完整", error_text, width=620, height=dynamic_height)
-            # 所有漏填输入框变红
+            # 所有漏填输入框变红（只对 Entry 设置样式，不对 Button 设置）
             style = ttk.Style(self)
             style.configure("Error.TEntry", fieldbackground="#ff6666")
-            for widget in missing_widgets:
+            for widget in error_style_widgets:
                 widget.configure(style="Error.TEntry")
             # 滚动到第一个漏填位置并聚焦
             if missing_widgets:
