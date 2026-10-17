@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.27
+投稿排版助手 v1.0.28
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.27")
+        self.title("投稿排版助手 v1.0.28")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -754,6 +754,9 @@ class App(tk.Tk):
         self.btn_browse1 = ttk.Button(fr1, text="浏览文件 [B]", command=self.select_file, takefocus=True)
         self.btn_browse1.pack(side="left", padx=5)
         self._grid_rows.append([self.e_file, self.btn_browse1])
+        
+        # 问题修复：监听文件路径变量变化，选择文件后恢复默认样式
+        self.file_path_var.trace("w", self._on_file_change)
         ttk.Label(content_wrapper, text="2. 选择输出保存文件夹").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,4))
         row_idx +=1
         fr2 = ttk.Frame(content_wrapper)
@@ -766,6 +769,9 @@ class App(tk.Tk):
         self.btn_browse2 = ttk.Button(fr2, text="浏览文件夹 [L]", command=self.select_save_folder, takefocus=True)
         self.btn_browse2.pack(side="left", padx=5)
         self._grid_rows.append([self.e_save, self.btn_browse2])
+        
+        # 问题修复：监听保存文件夹变量变化，选择后恢复默认样式
+        self.save_dir_var.trace("w", self._on_save_dir_change)
         ttk.Label(content_wrapper, text="3. 文章信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
         fr3 = ttk.Frame(content_wrapper)
@@ -782,6 +788,10 @@ class App(tk.Tk):
         self.author_entry.grid(row=1,column=1,sticky="ew",padx=5)
         self._grid_rows.append([self.title_entry])
         self._grid_rows.append([self.author_entry])
+        
+        # 问题修复：监听标题和作者变量变化，自动填充时恢复默认样式
+        self.title_var.trace("w", self._on_title_change)
+        self.author_var.trace("w", self._on_author_change)
         ttk.Label(content_wrapper, text="4. 联系信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
         fr4 = ttk.Frame(content_wrapper)
@@ -843,7 +853,27 @@ class App(tk.Tk):
                 parent = parent.master
         except (AttributeError, tk.TclError):
             pass
-    
+
+    def _on_title_change(self, *args):
+        """标题变量变化时，如果不为空则恢复默认样式"""
+        if self.title_var.get().strip():
+            self.title_entry.configure(style="TEntry")
+
+    def _on_author_change(self, *args):
+        """作者变量变化时，如果不为空则恢复默认样式"""
+        if self.author_var.get().strip():
+            self.author_entry.configure(style="TEntry")
+
+    def _on_file_change(self, *args):
+        """文件路径变量变化时，如果不为空则恢复默认样式"""
+        if self.file_path_var.get().strip():
+            self.e_file.configure(style="TEntry")
+
+    def _on_save_dir_change(self, *args):
+        """保存文件夹变量变化时，如果不为空则恢复默认样式"""
+        if self.save_dir_var.get().strip():
+            self.e_save.configure(style="TEntry")
+
     def _find_widget_position(self, widget):
         for r, row in enumerate(self._grid_rows):
             for c, w in enumerate(row):
