@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.15
+投稿排版助手 v1.0.22
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -194,7 +194,7 @@ def ask_export_conflict(parent, out_folder):
         text="请选择操作：\n"
              "覆盖：覆盖本次导出的同名文件（保留文件夹中的其他文件）\n"
              "另存为：给即将保存的文件夹改一个名字，仍保存在当前选定的目录下\n"
-             "取消：放弃本次导出",
+             "取消：放弃本次导出，重新选择保存目录",
         justify="left",
         wraplength=width - 50
     ).pack(anchor="w", pady=(0, 12))
@@ -621,7 +621,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.21")
+        self.title("投稿排版助手 v1.0.22")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -671,9 +671,9 @@ class App(tk.Tk):
         self.file_path_var = tk.StringVar()
         e_file = ttk.Entry(fr1, textvariable=self.file_path_var)
         e_file.pack(side="left", fill="x", expand=True)
-        btn_browse1 = ttk.Button(fr1, text="浏览文件 [B]", command=self.select_file, takefocus=True)
-        btn_browse1.pack(side="left", padx=5)
-        self._grid_rows.append([e_file, btn_browse1])
+        self.btn_browse1 = ttk.Button(fr1, text="浏览文件 [B]", command=self.select_file, takefocus=True)
+        self.btn_browse1.pack(side="left", padx=5)
+        self._grid_rows.append([e_file, self.btn_browse1])
         ttk.Label(content_wrapper, text="2. 选择输出保存文件夹").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,4))
         row_idx +=1
         fr2 = ttk.Frame(content_wrapper)
@@ -683,9 +683,9 @@ class App(tk.Tk):
         self.save_dir_var = tk.StringVar(value=self.cfg.get("last_save_dir",""))
         e_save = ttk.Entry(fr2, textvariable=self.save_dir_var)
         e_save.pack(side="left", fill="x", expand=True)
-        btn_browse2 = ttk.Button(fr2, text="浏览文件夹 [L]", command=self.select_save_folder, takefocus=True)
-        btn_browse2.pack(side="left", padx=5)
-        self._grid_rows.append([e_save, btn_browse2])
+        self.btn_browse2 = ttk.Button(fr2, text="浏览文件夹 [L]", command=self.select_save_folder, takefocus=True)
+        self.btn_browse2.pack(side="left", padx=5)
+        self._grid_rows.append([e_save, self.btn_browse2])
         ttk.Label(content_wrapper, text="3. 文章信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
         fr3 = ttk.Frame(content_wrapper)
@@ -741,8 +741,29 @@ class App(tk.Tk):
         self.bind_all("<Alt-l>", lambda e: (self.select_save_folder(), "break")[1])
         self.bind_all("<Alt-g>", lambda e: (self.add_bank_group(), "break")[1])
         self.bind_all("<Alt-x>", lambda e: (self.export_btn.invoke(), "break")[1])
-        self.after(100, lambda: self._focus_widget(btn_browse1))
+        
+        # 问题1修复：窗口启动时滚动到顶部，确保顶部提示文字可见
+        self.after(100, lambda: self.scroll_frame.canvas.yview_moveto(0))
+        self.after(200, lambda: self._focus_widget(btn_browse1))
+        
+        # 问题4修复：绑定全局焦点变化事件，让页面跟随光标滚动
+        self.bind_all("<FocusIn>", self._on_focus_in, add="+")
 
+    def _on_focus_in(self, event):
+        """焦点变化时，自动滚动让焦点 widget 在可视范围内（问题4修复）"""
+        try:
+            widget = event.widget
+            # 检查是否在主窗口内部（排除弹窗）
+            parent = widget
+            while parent:
+                if parent == self:
+                    # 在主窗口内部，执行滚动
+                    self.scroll_frame.scroll_widget_into_view(widget)
+                    break
+                parent = parent.master
+        except (AttributeError, tk.TclError):
+            pass
+    
     def _find_widget_position(self, widget):
         for r, row in enumerate(self._grid_rows):
             for c, w in enumerate(row):
@@ -1187,6 +1208,9 @@ class App(tk.Tk):
         if out_folder.exists():
             choice = ask_export_conflict(self, out_folder)
             if choice == "cancel":
+                # 问题2修复：点击取消后，滚动到首屏并聚焦到"浏览文件夹"按钮
+                self.after(100, lambda: self.scroll_frame.canvas.yview_moveto(0))
+                self.after(200, lambda: self._focus_widget(self.btn_browse2))
                 return
             elif choice == "saveas":
                 # 可以反复输入：名称为空或目标已存在时，提示后重新打开输入框。
@@ -1391,8 +1415,11 @@ class App(tk.Tk):
         sh2 = win.winfo_screenheight()
         win.geometry(f"{width}x{height}+{int((sw2-width)/2)}+{int((sh2-height)/2)}")
         win.update()
-        
-        ttk.Label(win, text=f"文件已导出到：\n{out_folder}", wraplength=width - 40, justify="left").pack(pady=15, padx=20)
+
+        # 问题3修复：使用透明背景的 Label
+        style = ttk.Style(win)
+        style.configure("Transparent.TLabel", background=win.cget("background"))
+        ttk.Label(win, text=f"文件已导出到：\n{out_folder}", wraplength=width - 40, justify="left", style="Transparent.TLabel").pack(pady=15, padx=20)
         def close_all(event=None):
             try:
                 win.grab_release()
