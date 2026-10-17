@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.31
+投稿排版助手 v1.0.32
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.31")
+        self.title("投稿排版助手 v1.0.32")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1044,9 +1044,9 @@ class App(tk.Tk):
                     if not var.get().strip():
                         empty_fields.append(entry)
                 
-                # 6. 银行信息
+                # 6. 银行信息（只检查必填字段：银行名称、账号、开户支行，不检查联行号）
                 for bank_idx, bank in enumerate(self.bank_data):
-                    for ck in ["银行名称","账号","开户支行","联行号"]:
+                    for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
                         var, entry = bank[ck]
                         if not var.get().strip():
                             empty_fields.append(entry)
@@ -1318,13 +1318,13 @@ class App(tk.Tk):
         if not fp:
             all_errors.append("未选择要排版的文件")
             missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
-            self.e_file.configure(style="Error.TEntry")  # 输入框标红
-            # 绑定选择文件事件，选择后恢复默认样式
+            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红，不对按钮设置样式
+            # 绑定选择文件事件，选择后恢复默认样式（只恢复输入框，按钮本来就没改）
             self.btn_browse1.configure(command=lambda: (self.select_file(), self.e_file.configure(style="TEntry")))
         elif not Path(fp).is_file():
             all_errors.append("当前选择的排版文件不存在")
             missing_widgets.append(self.btn_browse1)  # 聚焦到浏览按钮
-            self.e_file.configure(style="Error.TEntry")  # 输入框标红
+            self.e_file.configure(style="Error.TEntry")  # 只对输入框标红
         
         # 2. 检查标题
         title = self.title_var.get().strip()
