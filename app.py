@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.28
+投稿排版助手 v1.0.29
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.28")
+        self.title("投稿排版助手 v1.0.29")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1341,7 +1341,9 @@ class App(tk.Tk):
         # 统一弹窗提示所有问题
         if all_errors:
             error_text = "\n".join(all_errors)
-            show_alert(self, "信息不完整", error_text, width=620, height=400)
+            # 根据错误数量动态计算弹窗高度（每行约 25 像素，加上边距 120）
+            dynamic_height = min(max(len(all_errors) * 25 + 120, 180), 500)
+            show_alert(self, "信息不完整", error_text, width=620, height=dynamic_height)
             # 所有漏填输入框变红
             style = ttk.Style(self)
             style.configure("Error.TEntry", fieldbackground="#ff6666")
