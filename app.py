@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.25
+投稿排版助手 v1.0.27
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -701,7 +701,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.25")
+        self.title("投稿排版助手 v1.0.27")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -749,11 +749,11 @@ class App(tk.Tk):
         fr1.columnconfigure(0, weight=1)
         row_idx += 1
         self.file_path_var = tk.StringVar()
-        e_file = ttk.Entry(fr1, textvariable=self.file_path_var)
-        e_file.pack(side="left", fill="x", expand=True)
+        self.e_file = ttk.Entry(fr1, textvariable=self.file_path_var)
+        self.e_file.pack(side="left", fill="x", expand=True)
         self.btn_browse1 = ttk.Button(fr1, text="浏览文件 [B]", command=self.select_file, takefocus=True)
         self.btn_browse1.pack(side="left", padx=5)
-        self._grid_rows.append([e_file, self.btn_browse1])
+        self._grid_rows.append([self.e_file, self.btn_browse1])
         ttk.Label(content_wrapper, text="2. 选择输出保存文件夹").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,4))
         row_idx +=1
         fr2 = ttk.Frame(content_wrapper)
@@ -761,11 +761,11 @@ class App(tk.Tk):
         fr2.columnconfigure(0, weight=1)
         row_idx +=1
         self.save_dir_var = tk.StringVar(value=self.cfg.get("last_save_dir",""))
-        e_save = ttk.Entry(fr2, textvariable=self.save_dir_var)
-        e_save.pack(side="left", fill="x", expand=True)
+        self.e_save = ttk.Entry(fr2, textvariable=self.save_dir_var)
+        self.e_save.pack(side="left", fill="x", expand=True)
         self.btn_browse2 = ttk.Button(fr2, text="浏览文件夹 [L]", command=self.select_save_folder, takefocus=True)
         self.btn_browse2.pack(side="left", padx=5)
-        self._grid_rows.append([e_save, self.btn_browse2])
+        self._grid_rows.append([self.e_save, self.btn_browse2])
         ttk.Label(content_wrapper, text="3. 文章信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
         fr3 = ttk.Frame(content_wrapper)
@@ -774,14 +774,14 @@ class App(tk.Tk):
         row_idx +=1
         ttk.Label(fr3, text="标题：").grid(row=0,column=0,sticky="w")
         self.title_var = tk.StringVar()
-        e_title = ttk.Entry(fr3, textvariable=self.title_var)
-        e_title.grid(row=0,column=1,sticky="ew",padx=5)
+        self.title_entry = ttk.Entry(fr3, textvariable=self.title_var)
+        self.title_entry.grid(row=0,column=1,sticky="ew",padx=5)
         ttk.Label(fr3, text="作者：").grid(row=1,column=0,sticky="w",pady=3)
         self.author_var = tk.StringVar()
-        e_author = ttk.Entry(fr3, textvariable=self.author_var)
-        e_author.grid(row=1,column=1,sticky="ew",padx=5)
-        self._grid_rows.append([e_title])
-        self._grid_rows.append([e_author])
+        self.author_entry = ttk.Entry(fr3, textvariable=self.author_var)
+        self.author_entry.grid(row=1,column=1,sticky="ew",padx=5)
+        self._grid_rows.append([self.title_entry])
+        self._grid_rows.append([self.author_entry])
         ttk.Label(content_wrapper, text="4. 联系信息").grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10,6))
         row_idx +=1
         fr4 = ttk.Frame(content_wrapper)
@@ -1232,79 +1232,99 @@ class App(tk.Tk):
             show_alert(self, "打开失败", f"无法打开文件夹：{e}")
 
     def do_export(self):
+        # 重置所有输入框为默认样式
         for key, (var,entry) in self.contact_vars.items():
-            entry.config(background="white")
+            entry.configure(style="TEntry")
         for bank in self.bank_data:
             for k in ["银行名称","账号","开户支行","联行号"]:
                 var,entry = bank[k]
-                entry.config(background="white")
-        title = self.title_var.get().strip()
-        author = self.author_var.get().strip()
-
-        title_error = validate_title_book_marks(title)
-        if title_error:
-            show_alert(self, "标题格式有误", title_error)
-            return
-
-        fp = self.file_path_var.get().strip()
-        save_root = self.save_dir_var.get().strip()
-
-        # 导出前先检查源文件，避免用户没有选择文件时继续创建输出文件夹。
-        if not fp:
-            show_alert(self, "缺失", "请先选择要排版的文件。")
-            return
-        if not Path(fp).is_file():
-            show_alert(self, "文件不存在", "当前选择的排版文件不存在，请重新选择。")
-            return
-
-        display_title, file_title = normalize_title_for_export(title)
-        if not all([title, author, save_root]):
-            show_alert(self, "缺失", "标题、作者、保存文件夹不能为空")
-            return
-        error_text = ""
-        missing_widgets = []  # 收集漏填的 widget
-        contact = {}
+                entry.configure(style="TEntry")
+        
+        # 收集所有问题
+        all_errors = []
+        missing_widgets = []
         
         # 定义恢复背景色的回调函数（用户输入时调用）
         def restore_bg(event, entry_widget):
             """用户输入时恢复默认背景色"""
             entry_widget.configure(style="TEntry")  # 恢复默认 TEntry 样式
         
+        # 1. 检查文件
+        fp = self.file_path_var.get().strip()
+        if not fp:
+            all_errors.append("未选择要排版的文件")
+            missing_widgets.append(self.e_file)
+            # 绑定选择文件事件，选择后恢复默认样式
+            self.btn_browse1.configure(command=lambda: (self.select_file(), self.e_file.configure(style="TEntry")))
+        elif not Path(fp).is_file():
+            all_errors.append("当前选择的排版文件不存在")
+            missing_widgets.append(self.e_file)
+        
+        # 2. 检查标题
+        title = self.title_var.get().strip()
+        if not title:
+            all_errors.append("标题为空")
+            missing_widgets.append(self.title_entry)
+            self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry: restore_bg(e, w), add="+")
+        else:
+            title_error = validate_title_book_marks(title)
+            if title_error:
+                all_errors.append(f"标题格式有误：{title_error}")
+                missing_widgets.append(self.title_entry)
+                self.title_entry.bind("<KeyRelease>", lambda e, w=self.title_entry: restore_bg(e, w), add="+")
+        
+        # 3. 检查作者
+        author = self.author_var.get().strip()
+        if not author:
+            all_errors.append("作者为空")
+            missing_widgets.append(self.author_entry)
+            self.author_entry.bind("<KeyRelease>", lambda e, w=self.author_entry: restore_bg(e, w), add="+")
+        
+        # 4. 检查保存文件夹
+        save_root = self.save_dir_var.get().strip()
+        if not save_root:
+            all_errors.append("保存文件夹为空")
+            missing_widgets.append(self.e_save)
+            self.btn_browse2.configure(command=lambda: (self.select_save_folder(), self.e_save.configure(style="TEntry")))
+        
+        # 5. 检查联系信息
+        contact = {}
         for key, (var,entry) in self.contact_vars.items():
             val = var.get().strip()
             contact[key] = val
             if not val:
-                # 使用 ttk.Style 设置红色背景
-                style = ttk.Style(self)
-                style.configure("Error.TEntry", fieldbackground="#ff6666")
-                entry.configure(style="Error.TEntry")
-                error_text += f"联系信息：{key} 为空\n"
+                all_errors.append(f"联系信息：{key} 为空")
                 missing_widgets.append(entry)
-                # 绑定输入事件，用户输入时恢复默认样式
                 entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
+        
+        # 6. 检查银行信息
         bank_list = self.get_bank_list()
         for bank_idx, bank in enumerate(bank_list):
             for ck in ["银行名称","账号","开户支行"]:
                 val = bank[ck]
                 var,entry = self.bank_data[bank_idx][ck]
                 if not val:
-                    # 使用 ttk.Style 设置红色背景
-                    style = ttk.Style(self)
-                    style.configure("Error.TEntry", fieldbackground="#ff6666")
-                    entry.configure(style="Error.TEntry")
-                    error_text += f"第{bank_idx+1}组银行信息：{ck} 为空\n"
+                    all_errors.append(f"第{bank_idx+1}组银行信息：{ck} 为空")
                     missing_widgets.append(entry)
-                    # 绑定输入事件，用户输入时恢复默认样式
                     entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
-        if error_text:
-            show_alert(self, "必填项缺失", error_text, width=620, height=300)
-            # 问题1修复：关闭弹窗后，滚动到第一个漏填位置并聚焦
+        
+        # 统一弹窗提示所有问题
+        if all_errors:
+            error_text = "\n".join(all_errors)
+            show_alert(self, "信息不完整", error_text, width=620, height=400)
+            # 所有漏填输入框变红
+            style = ttk.Style(self)
+            style.configure("Error.TEntry", fieldbackground="#ff6666")
+            for widget in missing_widgets:
+                widget.configure(style="Error.TEntry")
+            # 滚动到第一个漏填位置并聚焦
             if missing_widgets:
                 first_widget = missing_widgets[0]
                 self.after(100, lambda: self.scroll_frame.scroll_widget_into_view(first_widget))
                 self.after(200, lambda: first_widget.focus_set())
             return
 
+        display_title, file_title = normalize_title_for_export(title)
         sub_folder_name = f"《{file_title}》投稿"
         out_folder = Path(save_root) / sub_folder_name
         fn_base = f"《{file_title}》{author}"
