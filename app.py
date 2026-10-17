@@ -20,19 +20,48 @@ import subprocess
 import stat
 import warnings
 import sys
+import os
 
-# 问题2修复：过滤 libpng 的 iCCP 警告（C 库警告，需要重定向 stderr）
-class _StderrFilter:
-    """过滤 libpng 的 iCCP 警告，其他错误正常输出"""
-    def __init__(self, original):
-        self._original = original
-    def write(self, data):
-        if 'iCCP' not in data:
-            self._original.write(data)
-    def flush(self):
-        self._original.flush()
+# 问题2修复：过滤 libpng 的 iCCP 警告（C 库警告，需要在文件描述符层面重定向）
+# 创建管道，用于过滤 stderr
+_stderr_read_fd, _stderr_write_fd = os.pipe()
 
-sys.stderr = _StderrFilter(sys.stderr)
+# 保存原始 stderr 的文件描述符
+_original_stderr_fd = os.dup(2)
+
+# 将 stderr 重定向到管道的写入端
+os.dup2(_stderr_write_fd, 2)
+
+def _filter_libpng_warnings():
+    """在后台线程中读取管道，过滤 libpng 警告"""
+    import threading
+    import atexit
+    
+    def _reader():
+        with os.fdopen(_stderr_read_fd, 'r', errors='replace') as f:
+            for line in f:
+                # 过滤 libpng 的 iCCP 警告
+                if 'iCCP' in line and 'known incorrect sRGB profile' in line:
+                    continue  # 丢弃这条警告
+                # 其他输出正常显示
+                os.write(_original_stderr_fd, line.encode('utf-8', errors='replace'))
+    
+    # 启动后台线程读取管道
+    thread = threading.Thread(target=_reader, daemon=True)
+    thread.start()
+    
+    # 程序退出时清理
+    def _cleanup():
+        try:
+            os.close(_stderr_write_fd)
+            os.close(_original_stderr_fd)
+        except:
+            pass
+    
+    atexit.register(_cleanup)
+
+# 启动过滤器
+_filter_libpng_warnings()
 
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
