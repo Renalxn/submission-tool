@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.24
+投稿排版助手 v1.0.25
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -19,9 +19,20 @@ import threading
 import subprocess
 import stat
 import warnings
+import sys
 
-# 问题2修复：过滤 libpng 的 iCCP 警告
-warnings.filterwarnings("ignore", category=UserWarning)
+# 问题2修复：过滤 libpng 的 iCCP 警告（C 库警告，需要重定向 stderr）
+class _StderrFilter:
+    """过滤 libpng 的 iCCP 警告，其他错误正常输出"""
+    def __init__(self, original):
+        self._original = original
+    def write(self, data):
+        if 'iCCP' not in data:
+            self._original.write(data)
+    def flush(self):
+        self._original.flush()
+
+sys.stderr = _StderrFilter(sys.stderr)
 
 CONFIG_DIR = Path.home() / ".tougao_assistant"
 CONFIG_FILE = CONFIG_DIR / "config.enc"
@@ -661,7 +672,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.24")
+        self.title("投稿排版助手 v1.0.25")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -1227,16 +1238,20 @@ class App(tk.Tk):
         
         # 定义恢复背景色的回调函数（用户输入时调用）
         def restore_bg(event, entry_widget):
-            entry_widget.config(background="white")
+            """用户输入时恢复默认背景色"""
+            entry_widget.configure(style="TEntry")  # 恢复默认 TEntry 样式
         
         for key, (var,entry) in self.contact_vars.items():
             val = var.get().strip()
             contact[key] = val
             if not val:
-                entry.config(background="#ff6666")  # 红色提示
+                # 使用 ttk.Style 设置红色背景
+                style = ttk.Style(self)
+                style.configure("Error.TEntry", fieldbackground="#ff6666")
+                entry.configure(style="Error.TEntry")
                 error_text += f"联系信息：{key} 为空\n"
                 missing_widgets.append(entry)
-                # 绑定输入事件，用户输入时恢复白色
+                # 绑定输入事件，用户输入时恢复默认样式
                 entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
         bank_list = self.get_bank_list()
         for bank_idx, bank in enumerate(bank_list):
@@ -1244,10 +1259,13 @@ class App(tk.Tk):
                 val = bank[ck]
                 var,entry = self.bank_data[bank_idx][ck]
                 if not val:
-                    entry.config(background="#ff6666")  # 红色提示
+                    # 使用 ttk.Style 设置红色背景
+                    style = ttk.Style(self)
+                    style.configure("Error.TEntry", fieldbackground="#ff6666")
+                    entry.configure(style="Error.TEntry")
                     error_text += f"第{bank_idx+1}组银行信息：{ck} 为空\n"
                     missing_widgets.append(entry)
-                    # 绑定输入事件，用户输入时恢复白色
+                    # 绑定输入事件，用户输入时恢复默认样式
                     entry.bind("<KeyRelease>", lambda e, w=entry: restore_bg(e, w), add="+")
         if error_text:
             show_alert(self, "必填项缺失", error_text, width=620, height=300)
