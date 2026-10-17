@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.34
+投稿排版助手 v1.0.35
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -288,7 +288,8 @@ def ask_export_conflict(parent, out_folder):
     win.bind("<Alt-KeyPress-o>", lambda e: choose("overwrite", e))
     win.bind("<Alt-KeyPress-s>", lambda e: choose("saveas", e))
     win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
-    win.bind("<Return>", lambda e: choose("overwrite", e))
+    # 问题2修复：回车键默认绑定到"取消"（更安全），避免用户误按回车直接覆盖
+    win.bind("<Return>", lambda e: choose("cancel", e))
     win.bind("<Escape>", lambda e: choose("cancel", e))
     win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
 
@@ -701,7 +702,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.34")
+        self.title("投稿排版助手 v1.0.35")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -907,6 +908,10 @@ class App(tk.Tk):
 
     def _focus_widget(self, widget):
         self._prev_focus = self.focus_get()
+        # 问题1修复：当聚焦到"选择文件"一栏时，先滚动到顶部，确保提示文字可见
+        if widget in (self.e_file, self.btn_browse1):
+            self.scroll_frame.canvas.yview_moveto(0)
+            self.update_idletasks()
         widget.focus_set()
         self.scroll_frame.scroll_widget_into_view(widget)
 
