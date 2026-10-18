@@ -1,55 +1,121 @@
-# 投稿排版助手 v1.0
+# 投稿排版助手
 
-纯本地桌面工具（Tkinter GUI），自动将文章按规范格式排版为 .docx 和 .txt 文件。不联网，纯本地运行。
+纯本地桌面工具，帮助您快速将文章按投稿规范排版。不联网，保护隐私。
 
-## 功能
+## 下载
 
-- 选择 .docx / .txt / .md 文件（.doc 格式会提示另存为）
-- 自动识别标题、作者填入界面，可手动修改
-- 按投稿规范排版：宋体；标题4号、居中；作者姓名5号、居中；正文5号、两端对齐、首行缩进两格、单倍行距
-- 自动统计正文字数，显示"（正文：xxx 字）"
-- 联系信息（姓名/微信/电话/地址/邮编/身份证号/邮箱）自动记忆，下次打开自动填入
-- 银行信息最多4组，可添加/删除，加密保存到本地
-- 同时生成 .docx 和 .txt 两种输出格式
+### 方式一：GitHub 下载
+- 访问 [Releases 页面](https://github.com/Renalxn/submission-tool/releases)
+- 下载最新版本的 exe 文件
 
-## 快速启动
+### 方式二：百度网盘下载（国内用户推荐）
+- 链接：https://pan.baidu.com/s/58MNJRq5whs2iA_dnH3fSlg
+- 包含：
+  - `投稿排版助手_v1.0.39.exe`（21MB）
+  - `用户手册.txt`（使用说明）
 
-### Windows
-pip install python-docx cryptography
+## 功能特点
+
+- **不联网**：纯本地运行，保护隐私
+- **自动识别**：从文件中识别标题、作者
+- **智能排版**：按投稿规范自动排版
+- **字数统计**：自动统计正文字数
+- **信息记忆**：联系信息和银行信息自动记忆
+- **多格式支持**：支持 .docx / .txt / .md 输入
+- **双格式输出**：同时生成 .docx 和 .txt
+
+## 使用方法
+
+1. 下载并运行 `投稿排版助手_v1.0.39.exe`
+2. 首次运行时，会自动释放 `用户手册.txt` 到 exe 同级目录
+3. 按照用户手册操作即可
+
+### 详细步骤
+
+1. **选择文件**：点击"浏览文件"按钮，选择 .docx、.txt 或 .md 格式的文件
+2. **选择保存文件夹**：点击"浏览文件夹"按钮，选择输出位置
+3. **填写信息**：标题、作者会自动识别，也可手动修改
+4. **排版并导出**：点击"排版并导出"按钮
+
+### 输入文件格式
+
+```
+第1行：文章标题
+第2行：作者姓名
+第3行起：正文内容
+```
+
+### 输出文件
+
+在选择的保存目录下自动创建"《文章标题》投稿"文件夹，包含：
+- `《文章标题》作者姓名.docx`
+- `《文章标题》作者姓名.txt`
+
+## 排版格式
+
+- **标题**：宋体，4号（14磅），居中
+- **作者**：宋体，5号（10.5磅），居中
+- **正文**：宋体，5号（10.5磅），两端对齐，首行缩进2字符，单倍行距
+- **字数统计**：正文末尾显示"（正文：xxx 字）"
+
+## 数据安全
+
+- 所有敏感信息（联系信息、银行信息）加密保存在本地
+- 配置文件位置：`C:\Users\你的用户名\.tougao_assistant\`
+- 不会上传到网络
+
+## 开发者文档
+
+### 从源码运行
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行程序
 python app.py
+```
 
-### macOS / Linux
-pip3 install python-docx cryptography
-python3 app.py
+### 打包为可执行文件
 
-## 依赖
-- Python 3.10+
-- python-docx
-- cryptography
-
-## 文件约定
-输入文件结构：
-- 第 1 行 = 文章标题
-- 第 2 行 = 作者姓名
-- 第 3 行起 = 正文
-
-## 输出
-在用户选择的目录下自动创建《文章标题》投稿子文件夹，包含：
-- 《文章标题》作者姓名.docx
-- 《文章标题》作者姓名.txt
-
-## 配置文件
-联系信息和银行信息加密保存在 ~/.tougao_assistant/ 目录下，下次打开自动填入。
-
-## 打包为可执行文件（给不懂编程的用户）
-需先安装 PyInstaller：
+```bash
+# 安装 PyInstaller
 pip install pyinstaller
-pyinstaller submission_tool.spec
-生成的可执行文件在 dist/投稿排版助手/ 目录下。
 
-### 各平台打包
-- Windows：在 Windows 上运行 pyinstaller submission_tool.spec
-- macOS：在 macOS 上运行 pyinstaller submission_tool.spec
-- Linux：在 Linux 上运行 pyinstaller submission_tool.spec
+# Windows 打包
+pyinstaller subtool.spec
 
-> PyInstaller 不支持交叉编译，需在目标平台上打包。
+# macOS 打包（需在 macOS 环境）
+pyinstaller subtool_macos.spec
+
+# Linux 打包（需在 Linux 环境）
+pyinstaller subtool_linux.spec
+```
+
+> 注意：PyInstaller 不支持交叉编译，需在目标平台上打包。
+
+## 系统要求
+
+- Windows 10/11（64位）
+- 无需安装 Python 或其他依赖
+
+## 已知问题
+
+- 不支持旧版 .doc 格式（请先另存为 .docx）
+- macOS 和 Linux 版本尚未发布
+
+## 技术栈
+
+- Python 3.10+
+- Tkinter（GUI）
+- python-docx（Word 文档处理）
+- cryptography（信息加密）
+- PyInstaller（打包）
+
+## 许可证
+
+本项目仅供学习和个人使用。
+
+## 反馈与支持
+
+如有问题或建议，请通过 GitHub Issues 反馈。
