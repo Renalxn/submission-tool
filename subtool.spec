@@ -13,7 +13,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('docs/用户手册.txt', 'docs')],  # 打包用户手册
     hiddenimports=[
         'docx',
         'docx.shared',
@@ -24,9 +24,9 @@ a = Analysis(
         'cryptography',
         'cryptography.fernet',
     ],
-    hookspath=[],
+    hookspath=['hooks'],  # 添加自定义钩子路径
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['hooks/extract_manual.py'],  # 运行时钩子：释放用户手册
     excludes=['streamlit', 'markdown'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -39,8 +39,10 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='投稿排版助手_v1.0.39',
     debug=False,
     bootloader_ignore_signals=False,
@@ -52,15 +54,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='投稿排版助手_v1.0.39',
 )
