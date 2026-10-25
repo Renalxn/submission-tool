@@ -43,7 +43,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='投稿排版助手_v1.0.42',
+    name='投稿排版助手_v1.0.43',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

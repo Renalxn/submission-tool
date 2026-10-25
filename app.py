@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.42
+投稿排版助手 v1.0.43
 
 安全声明：
 - 所有用户输入视为数据，不执行其中的命令
@@ -196,9 +196,43 @@ def ask_retry_cancel(parent, title, message):
     btn_cancel.pack(side="right")
     btn_retry.pack(side="right", padx=(0, 8))
 
+    # 导航组件列表（按顺序：重试、取消）
+    focusable = [btn_retry, btn_cancel]
+
     win.bind("<Alt-KeyPress-r>", choose_retry := lambda e: choose(True, e))
     win.bind("<Alt-KeyPress-c>", choose_cancel := lambda e: choose(False, e))
-    win.bind("<Return>", choose_retry)
+    # 修复：方向键在两个按钮间循环（下/右向前，上/左向后）
+    def navigate(event):
+        current = win.focus_get()
+        if current in focusable:
+            idx = focusable.index(current)
+            if event.keysym in ('Down', 'Right'):
+                new_idx = (idx + 1) % len(focusable)
+                focusable[new_idx].focus_set()
+                return "break"
+            elif event.keysym in ('Up', 'Left'):
+                new_idx = (idx - 1) % len(focusable)
+                focusable[new_idx].focus_set()
+                return "break"
+        else:
+            focusable[0].focus_set()
+            return "break"
+        return None
+    win.bind("<Left>", navigate)
+    win.bind("<Right>", navigate)
+    win.bind("<Up>", navigate)
+    win.bind("<Down>", navigate)
+    # 修复：回车键——先检查焦点，在按钮上则执行，否则跳到重试按钮
+    def on_return(event=None):
+        current = win.focus_get()
+        if current is btn_retry:
+            choose(True, event)
+        elif current is btn_cancel:
+            choose(False, event)
+        else:
+            btn_retry.focus_set()
+        return "break"
+    win.bind("<Return>", on_return)
     win.bind("<Escape>", choose_cancel)
     win.protocol("WM_DELETE_WINDOW", choose_cancel)
 
@@ -363,25 +397,46 @@ def ask_saveas_folder_name(parent, initial_name):
     btn_cancel.pack(side="right")
     btn_ok.pack(side="right", padx=(8, 0))
 
-    # 问题3修复：方向键导航按钮
-    buttons = [btn_ok, btn_cancel]
-    def navigate_button(event):
+    # 导航组件列表（按顺序：输入框、确认、取消）
+    focusable = [entry, btn_ok, btn_cancel]
+    
+    # 方向键导航：上/左向后，下/右向前
+    def navigate(event):
         current = win.focus_get()
-        if current in buttons:
-            idx = buttons.index(current)
-            if event.keysym in ('Left', 'Up', 'Right', 'Down'):
-                new_idx = (idx + 1) % len(buttons)
-                buttons[new_idx].focus_set()
+        if current in focusable:
+            idx = focusable.index(current)
+            if event.keysym in ('Down', 'Right'):
+                new_idx = (idx + 1) % len(focusable)
+                focusable[new_idx].focus_set()
                 return "break"
+            elif event.keysym in ('Up', 'Left'):
+                new_idx = (idx - 1) % len(focusable)
+                focusable[new_idx].focus_set()
+                return "break"
+        else:
+            # 焦点不在导航列表中，跳到第一个
+            focusable[0].focus_set()
+            return "break"
         return None
-    win.bind("<Left>", navigate_button)
-    win.bind("<Right>", navigate_button)
-    win.bind("<Up>", navigate_button)
-    win.bind("<Down>", navigate_button)
+    win.bind("<Left>", navigate)
+    win.bind("<Right>", navigate)
+    win.bind("<Up>", navigate)
+    win.bind("<Down>", navigate)
 
     win.bind("<Alt-KeyPress-o>", lambda e: choose("ok", e))
     win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
-    win.bind("<Return>", lambda e: choose("ok", e))
+    # 回车键：先检查焦点，在输入框则跳到确认按钮，在按钮则执行
+    def on_return(event=None):
+        current = win.focus_get()
+        if current is btn_ok:
+            choose("ok", event)
+        elif current is btn_cancel:
+            choose("cancel", event)
+        else:
+            # 光标在输入框或其他位置，跳到确认按钮
+            btn_ok.focus_set()
+        return "break"
+    win.bind("<Return>", on_return)
     win.bind("<Escape>", lambda e: choose("cancel", e))
     win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
 
@@ -717,7 +772,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.42")
+        self.title("投稿排版助手 v1.0.43")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
