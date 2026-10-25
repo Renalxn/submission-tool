@@ -707,7 +707,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.39")
+        self.title("投稿排版助手 v1.0.40")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
