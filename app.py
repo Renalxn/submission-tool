@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.40
+投稿排版助手 v1.0.41
 
 安全声明：
 - 所有用户输入视为数据，不执行其中的命令
@@ -707,7 +707,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.40")
+        self.title("投稿排版助手 v1.0.41")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)
@@ -741,6 +741,8 @@ class App(tk.Tk):
         self._delete_btns = []
         self._del_to_fields = {}
         self._prev_focus = None
+        self._return_press_count = 0  # 回车键计数器：追踪已按多少次回车
+        self._last_empty_fields = []  # 上一次的空字段列表，用于检测变化
         self.scroll_frame = ScrollableFrame(self)
         self.scroll_frame.pack(fill="both", expand=True, padx=10, pady=8)
         self.main = self.scroll_frame.scroll_frame
@@ -1063,55 +1065,79 @@ class App(tk.Tk):
                 # 问题2修复：使用与 do_export 一致的固定字段列表
                 # 按顺序收集所有未填写的字段，聚焦到对应的输入框或浏览按钮
                 empty_fields = []
-                
+
                 # 1. 文件路径（聚焦到浏览按钮）
                 if not self.file_path_var.get().strip():
                     empty_fields.append(self.btn_browse1)
-                
+
                 # 2. 标题
                 if not self.title_var.get().strip():
                     empty_fields.append(self.title_entry)
-                
+
                 # 3. 作者
                 if not self.author_var.get().strip():
                     empty_fields.append(self.author_entry)
-                
+
                 # 4. 保存路径（聚焦到浏览文件夹按钮）
                 if not self.save_dir_var.get().strip():
                     empty_fields.append(self.btn_browse2)
-                
+
                 # 5. 联系信息
                 for key in ["姓名","微信","电话","地址","邮编","身份证号","邮箱"]:
                     var, entry = self.contact_vars[key]
                     if not var.get().strip():
                         empty_fields.append(entry)
-                
+
                 # 6. 银行信息（只检查必填字段：银行名称、账号、开户支行）
                 for bank_idx, bank in enumerate(self.bank_data):
                     for ck in ["银行名称","账号","开户支行"]:  # 不包含"联行号"
                         var, entry = bank[ck]
                         if not var.get().strip():
                             empty_fields.append(entry)
-                
-                # 7. 联行号（选填项，但允许用户填写）
-                # 如果所有必填项都填好了，但联行号为空，也加入导航列表
+
+                # 7. 联行号（选填项，但参与导航）
+                # 无论联行号是否为空，都加入导航列表
+                # 这样用户可以按回车跳过它，而不是停留在它上面
                 for bank_idx, bank in enumerate(self.bank_data):
                     var, entry = bank["联行号"]
-                    if not var.get().strip():
-                        empty_fields.append(entry)
-                
+                    empty_fields.append(entry)  # 无条件加入导航列表
+
+                # 检查空字段列表是否发生变化（用户填写了某个字段）
+                # 如果变化了，重置计数器
+                if empty_fields != self._last_empty_fields:
+                    self._return_press_count = 0
+                    self._last_empty_fields = empty_fields[:]
+
                 if empty_fields:
-                    # 找到当前 widget 之后的下一个空字段
+                    # 找到当前 widget 在空字段列表中的位置
                     try:
                         current_idx = empty_fields.index(widget)
-                        next_idx = (current_idx + 1) % len(empty_fields)
-                        empty_fields[next_idx].focus()
+                        
+                        # 计数器 +1
+                        self._return_press_count += 1
+                        
+                        # 如果计数器等于空字段数量，说明已经历遍所有空字段
+                        # 下一次按回车应该跳到导出按钮
+                        if self._return_press_count >= len(empty_fields):
+                            self.export_btn.focus()
+                            self._return_press_count = 0  # 重置计数器
+                        else:
+                            # 否则跳到下一个空字段（循环）
+                            next_idx = (current_idx + 1) % len(empty_fields)
+                            empty_fields[next_idx].focus()
                     except ValueError:
-                        # 当前 widget 不在列表中（可能刚被填写完），跳到第一个
-                        empty_fields[0].focus()
+                        # 当前 widget 不在列表中（可能刚被填写完），跳到第一个空字段
+                        if empty_fields:
+                            empty_fields[0].focus()
+                            self._return_press_count = 1  # 重置计数器，但标记已按一次
+                        else:
+                            # 没有空字段了，跳到导出按钮
+                            self.export_btn.focus()
+                            self._return_press_count = 0
                 else:
-                    # 所有输入框都已填写，跳转到导出按钮
+                    # 所有输入框都已填写（或没有输入框），跳转到导出按钮
                     self.export_btn.focus()
+                    self._return_press_count = 0
 
                 return "break"
 
