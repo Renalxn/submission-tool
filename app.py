@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.41
+投稿排版助手 v1.0.42
 
 安全声明：
 - 所有用户输入视为数据，不执行其中的命令
@@ -293,8 +293,18 @@ def ask_export_conflict(parent, out_folder):
     win.bind("<Alt-KeyPress-o>", lambda e: choose("overwrite", e))
     win.bind("<Alt-KeyPress-s>", lambda e: choose("saveas", e))
     win.bind("<Alt-KeyPress-c>", lambda e: choose("cancel", e))
-    # 问题2修复：回车键默认绑定到"取消"（更安全），避免用户误按回车直接覆盖
-    win.bind("<Return>", lambda e: choose("cancel", e))
+    # 问题2修复：回车键——先检查焦点是否在按钮上，是则执行该按钮，否则默认"取消"
+    def on_return(event=None):
+        current = win.focus_get()
+        if current is btn_overwrite:
+            choose("overwrite", event)
+        elif current is btn_saveas:
+            choose("saveas", event)
+        elif current is btn_cancel:
+            choose("cancel", event)
+        else:
+            choose("cancel", event)  # 安全默认值
+    win.bind("<Return>", on_return)
     win.bind("<Escape>", lambda e: choose("cancel", e))
     win.protocol("WM_DELETE_WINDOW", lambda: choose("cancel"))
 
@@ -707,7 +717,7 @@ class ScrollableFrame(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("投稿排版助手 v1.0.41")
+        self.title("投稿排版助手 v1.0.42")
         
         # 设置 ttk 主题美化界面
         style = ttk.Style(self)

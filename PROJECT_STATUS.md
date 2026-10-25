@@ -1,7 +1,7 @@
 # 投稿排版工具 - 项目状态文档
 
 > 最后更新：2026-10-26
-> 当前版本：v1.0.41
+> 当前版本：v1.0.42
 > 项目路径：`~/projects/submission-tool/`
 > GitHub：https://github.com/Renalxn/submission-tool（私有仓库）
 
