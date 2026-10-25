@@ -91,18 +91,28 @@
 ### 从源码运行
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+# 安装依赖（已锁定版本）
+pip install python-docx==1.1.0 cryptography==41.0.7
 
 # 运行程序
 python app.py
 ```
 
+### 运行测试
+
+```bash
+# 运行单元测试
+python -m unittest discover tests
+
+# 运行单个测试文件
+python -m unittest tests/test_app.py
+```
+
 ### 打包为可执行文件
 
 ```bash
-# 安装 PyInstaller
-pip install pyinstaller
+# 安装 PyInstaller（已锁定版本）
+pip install pyinstaller==6.0.0
 
 # Windows 打包
 pyinstaller subtool.spec

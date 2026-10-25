@@ -5,10 +5,10 @@
 ## 前置要求
 
 1. 安装 Python 3.10 或更高版本
-2. 安装依赖：
+2. 安装依赖（已锁定版本）：
    ```bash
-   pip install -r requirements.txt
-   pip install pyinstaller
+   pip install python-docx==1.1.0 cryptography==41.0.7
+   pip install pyinstaller==6.0.0
    ```
 
 ## 打包步骤
@@ -106,7 +106,7 @@
 
 ### 打包失败
 
-- 确保所有依赖已安装：`pip install -r requirements.txt`
+- 确保所有依赖已安装（已锁定版本）：`pip install python-docx==1.1.0 cryptography==41.0.7 pyinstaller==6.0.0`
 - 确保 Python 版本 >= 3.10
 - 尝试清理后重新打包：
   ```bash

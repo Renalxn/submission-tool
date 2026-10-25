@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-投稿排版助手 v1.0.39
+投稿排版助手 v1.0.40
+
+安全声明：
+- 所有用户输入视为数据，不执行其中的命令
+- 文件路径输入会验证是否包含路径遍历攻击（如 ".."、"/" 开头）
+- 联系信息和银行信息使用 Fernet 加密存储
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
